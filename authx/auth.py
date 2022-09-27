@@ -8,9 +8,9 @@ def is_site_admin(request, opa_url, admin_secret):
     Is the user associated with the token a site admin?
     """
     site_admin_key = os.getenv("CANDIG_OPA_SITE_ADMIN_KEY", "site_admin")
-    
+        
     if "Authorization" in request.headers:
-        token = get_auth_token(request.headers)
+        token = get_auth_token(request)
         response = requests.post(
             opa_url + "/v1/data/idp/" + site_admin_key,
             headers={
@@ -43,10 +43,12 @@ def get_opa_datasets(request, opa_url, admin_secret):
     """
     Get allowed dataset result from OPA
     """
-
+    
+    token = get_auth_token(request)
+    
     body = {
         "input": {
-            "token": get_auth_token(request),
+            "token": token,
             "body": {
                 "path": request.path,
                 "method": request.method
