@@ -3,11 +3,17 @@ import re
 import requests
 
 
+## Make sure these env vars are available:
+CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("CANDIG_OPA_SITE_ADMIN_KEY", "site_admin")
+KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL')
+VAULT_URL = os.getenv('VAULT_URL')
+
+
 def is_site_admin(request, opa_url, admin_secret):
     """
     Is the user associated with the token a site admin?
     """
-    site_admin_key = os.getenv("CANDIG_OPA_SITE_ADMIN_KEY", "site_admin")
+    site_admin_key = CANDIG_OPA_SITE_ADMIN_KEY
         
     if "Authorization" in request.headers:
         token = get_auth_token(request)
@@ -77,7 +83,7 @@ def get_site_admin_token():
         "password": os.getenv("CANDIG_SITE_ADMIN_PASSWORD"),
         "scope": "openid"
     }
-    response = requests.post(f"{os.getenv('KEYCLOAK_PUBLIC_URL')}/auth/realms/candig/protocol/openid-connect/token", data=payload)
+    response = requests.post(f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()["access_token"]
     else:
@@ -168,14 +174,14 @@ def store_aws_credential(client, token):
         "jwt": token,
         "role": "site_admin"
     }
-    url = f"{os.getenv(VAULT_URL)}/v1/auth/jwt/login"
+    url = f"{VAULT_URL}/v1/auth/jwt/login"
     response = requests.post(url, json=body, headers=headers)
     if response.status_code == 200:
         client_token = response.json()["auth"]["client_token"]
         headers["X-Vault-Token"] = client_token
     
     # check to see if credential exists:
-    url = f"{os.getenv(VAULT_URL)}/v1/aws/{client['endpoint']}-{client['bucket']}"
+    url = f"{VAULT_URL}/v1/aws/{client['endpoint']}-{client['bucket']}"
     response = requests.get(url, headers=headers)
     if response.status_code == 404:
         # add credential:
@@ -187,6 +193,19 @@ def store_aws_credential(client, token):
     if response.status_code >= 200 and response.status_code < 300:
         return True, None
     return False, json.dumps(response.json())
+    
+    
+def get_aws_credential(request, endpoint, bucket, vault_s3_token):
+    response = requests.get(
+        f"{VAULT_URL}/v1/aws/{endpoint}-{bucket}",
+        headers={
+            "Authorization": f"Bearer {get_auth_token(request)}",
+            "X-Vault-Token": vault_s3_token
+            }
+    )
+    if response.status_code == 200:
+        return response.json()["data"], response.status_code
+    return {"message": f"Vault error: {response.json()}"}, response.status_code
 
 
 if __name__ == "__main__":
