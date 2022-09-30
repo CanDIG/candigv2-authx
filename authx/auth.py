@@ -29,7 +29,6 @@ def is_site_admin(request, opa_url, admin_secret):
                     }
                 }
             )
-        response.raise_for_status()
         if 'result' in response.json():
             return True
     return False
