@@ -68,7 +68,6 @@ def get_opa_datasets(request, opa_url, admin_secret):
         },
         json=body
     )
-    response.raise_for_status()
     allowed_datasets = response.json()["result"]
     return allowed_datasets
 
@@ -204,7 +203,7 @@ def get_aws_credential(request, endpoint, bucket, vault_s3_token):
     )
     if response.status_code == 200:
         return response.json()["data"], response.status_code
-    return {"message": f"Vault error: {response.json()}"}, response.status_code
+    return {"message": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
 if __name__ == "__main__":
