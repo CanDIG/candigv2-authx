@@ -9,12 +9,10 @@ KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL')
 VAULT_URL = os.getenv('VAULT_URL')
 
 
-def is_site_admin(request, opa_url, admin_secret):
+def is_site_admin(request, opa_url, admin_secret, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
     """
     Is the user associated with the token a site admin?
     """
-    site_admin_key = CANDIG_OPA_SITE_ADMIN_KEY
-        
     if "Authorization" in request.headers:
         token = get_auth_token(request)
         response = requests.post(
