@@ -8,7 +8,7 @@ CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("CANDIG_OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_PUBLIC_URL', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
-VAULT_S3_TOKEN = os.genenv('VAULT_S3_TOKEN', None)
+VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 
 
 def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
