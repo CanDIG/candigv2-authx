@@ -10,7 +10,7 @@ OPA_URL = os.getenv('OPA_PUBLIC_URL', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
 
 
-def is_site_admin(request, opa_url=OPA_URL, admin_secret, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
+def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
     """
     Is the user associated with the token a site admin?
     """
@@ -43,7 +43,7 @@ def get_auth_token(request):
     return token.split()[1]
 
 
-def get_opa_datasets(request, opa_url=OPA_URL, admin_secret):
+def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
     """
@@ -88,7 +88,7 @@ def get_site_admin_token(keycloak_url=KEYCLOAK_PUBLIC_URL):
         raise Exception(f"Check for environment variables: {response.text}")
 
 
-def get_minio_client(s3_endpoint, bucket, access_key=None, secret_key=None, region=None):
+def get_minio_client(s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
     # eat any http stuff from endpoint:
     endpoint_parse = re.match(r"https*:\/\/(.+)?", s3_endpoint)
     if endpoint_parse is not None:
@@ -161,7 +161,7 @@ def parse_aws_credential(awsfile):
     return {"access": access, "secret": secret}
 
 
-def store_aws_credential(client, vault_url=VAULT_URL, token):
+def store_aws_credential(client, vault_url=VAULT_URL, token=None):
     # get client token for site_admin:
     headers = {
         "Authorization": f"Bearer {token}",
@@ -193,7 +193,7 @@ def store_aws_credential(client, vault_url=VAULT_URL, token):
     return False, json.dumps(response.json())
     
     
-def get_aws_credential(request, vault_url=VAULT_URL, endpoint, bucket, vault_s3_token):
+def get_aws_credential(request, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=None):
     response = requests.get(
         f"{vault_url}/v1/aws/{endpoint}-{bucket}",
         headers={
