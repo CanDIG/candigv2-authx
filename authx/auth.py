@@ -8,6 +8,7 @@ CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("CANDIG_OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_PUBLIC_URL', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
+VAULT_S3_TOKEN = os.genenv('VAULT_S3_TOKEN', None)
 
 
 def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
@@ -103,8 +104,11 @@ def get_minio_client(s3_endpoint=None, bucket=None, access_key=None, secret_key=
         bucket = "candigtest"
     if s3_endpoint is not None:
         endpoint = s3_endpoint
-        if access_key is None or secret_key is None:
-            raise Exception(f"AWS credentials were not provided")
+        response, status_code = get_aws_credential(request, endpoint=endpoint, bucket=bucket)
+        if "error" in response:
+            raise Exception(response["error"])
+        access_key = response["access"]
+        secret_key = response["secret"]
     else:
         endpoint = "play.min.io:9000"
         access_key="Q3AM3UQ867SPQQA43P2F"
@@ -138,6 +142,17 @@ def get_minio_client(s3_endpoint=None, bucket=None, access_key=None, secret_key=
         "access": access_key,
         "secret": secret_key
     }
+
+
+def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None):
+    try:
+        response = get_minio_client(s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
+        client = response["client"]
+        result = client.stat_object(bucket_name=bucket, object_name=object_name)
+        url = client.presigned_get_object(bucket_name=bucket, object_name=object_name)
+    except Exception as e:
+        return {"message": str(e)}, 500
+    return {"url": url}, 200
 
 
 def parse_aws_credential(awsfile):
@@ -193,7 +208,11 @@ def store_aws_credential(client, vault_url=VAULT_URL, token=None):
     return False, json.dumps(response.json())
     
     
-def get_aws_credential(request, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=None):
+def get_aws_credential(request, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
+    if vault_s3_token is None:
+        return {"error": f"Vault error: service did not provide VAULT_S3_TOKEN"}, 500
+    if vault_url is None:
+        return {"error": f"Vault error: service did not provide VAULT_URL"}, 500
     response = requests.get(
         f"{vault_url}/v1/aws/{endpoint}-{bucket}",
         headers={
@@ -203,7 +222,7 @@ def get_aws_credential(request, vault_url=VAULT_URL, endpoint=None, bucket=None,
     )
     if response.status_code == 200:
         return response.json()["data"], response.status_code
-    return {"message": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
+    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
 if __name__ == "__main__":
