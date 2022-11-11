@@ -5,11 +5,12 @@ import requests
 
 ## Make sure these env vars are available:
 CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("CANDIG_OPA_SITE_ADMIN_KEY", "site_admin")
-KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL')
-VAULT_URL = os.getenv('VAULT_URL')
+KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
+OPA_URL = os.getenv('OPA_PUBLIC_URL', None)
+VAULT_URL = os.getenv('VAULT_URL', None)
 
 
-def is_site_admin(request, opa_url, admin_secret, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
+def is_site_admin(request, opa_url=OPA_URL, admin_secret, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
     """
     Is the user associated with the token a site admin?
     """
@@ -42,7 +43,7 @@ def get_auth_token(request):
     return token.split()[1]
 
 
-def get_opa_datasets(request, opa_url, admin_secret):
+def get_opa_datasets(request, opa_url=OPA_URL, admin_secret):
     """
     Get allowed dataset result from OPA
     """
@@ -71,7 +72,7 @@ def get_opa_datasets(request, opa_url, admin_secret):
     return allowed_datasets
 
 
-def get_site_admin_token():
+def get_site_admin_token(keycloak_url=KEYCLOAK_PUBLIC_URL):
     payload = {
         "client_id": os.getenv("CANDIG_CLIENT_ID"),
         "client_secret": os.getenv("CANDIG_CLIENT_SECRET"),
@@ -80,7 +81,7 @@ def get_site_admin_token():
         "password": os.getenv("CANDIG_SITE_ADMIN_PASSWORD"),
         "scope": "openid"
     }
-    response = requests.post(f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig/protocol/openid-connect/token", data=payload)
+    response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()["access_token"]
     else:
@@ -160,7 +161,7 @@ def parse_aws_credential(awsfile):
     return {"access": access, "secret": secret}
 
 
-def store_aws_credential(client, token):
+def store_aws_credential(client, vault_url=VAULT_URL, token):
     # get client token for site_admin:
     headers = {
         "Authorization": f"Bearer {token}",
@@ -171,14 +172,14 @@ def store_aws_credential(client, token):
         "jwt": token,
         "role": "site_admin"
     }
-    url = f"{VAULT_URL}/v1/auth/jwt/login"
+    url = f"{vault_url}/v1/auth/jwt/login"
     response = requests.post(url, json=body, headers=headers)
     if response.status_code == 200:
         client_token = response.json()["auth"]["client_token"]
         headers["X-Vault-Token"] = client_token
     
     # check to see if credential exists:
-    url = f"{VAULT_URL}/v1/aws/{client['endpoint']}-{client['bucket']}"
+    url = f"{vault_url}/v1/aws/{client['endpoint']}-{client['bucket']}"
     response = requests.get(url, headers=headers)
     if response.status_code == 404:
         # add credential:
@@ -192,9 +193,9 @@ def store_aws_credential(client, token):
     return False, json.dumps(response.json())
     
     
-def get_aws_credential(request, endpoint, bucket, vault_s3_token):
+def get_aws_credential(request, vault_url=VAULT_URL, endpoint, bucket, vault_s3_token):
     response = requests.get(
-        f"{VAULT_URL}/v1/aws/{endpoint}-{bucket}",
+        f"{vault_url}/v1/aws/{endpoint}-{bucket}",
         headers={
             "Authorization": f"Bearer {get_auth_token(request)}",
             "X-Vault-Token": vault_s3_token
