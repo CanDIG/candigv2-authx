@@ -58,21 +58,17 @@ def get_opa_datasets(request, opa_url, admin_secret):
             }
         }
     }
-    try:
-        response = requests.post(
-            opa_url + "/v1/data/permissions/datasets",
-            headers={
-                "X-Opa": f"{admin_secret}",
-                "Authorization": f"Bearer {token}"
-            },
-            json=body
-        )
-        response.raise_for_status()
-        allowed_datasets = response.json()["result"]
-        return allowed_datasets
-    except HTTPError as e:
-        print(e)
-        return None
+    response = requests.post(
+        opa_url + "/v1/data/permissions/datasets",
+        headers={
+            "X-Opa": f"{admin_secret}",
+            "Authorization": f"Bearer {token}"
+        },
+        json=body
+    )
+    response.raise_for_status()
+    allowed_datasets = response.json()["result"]
+    return allowed_datasets
 
 
 def get_site_admin_token():
