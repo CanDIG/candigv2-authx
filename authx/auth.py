@@ -89,7 +89,7 @@ def get_site_admin_token(keycloak_url=KEYCLOAK_PUBLIC_URL):
         raise Exception(f"Check for environment variables: {response.text}")
 
 
-def get_minio_client(s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
+def get_minio_client(request, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
     # eat any http stuff from endpoint:
     endpoint_parse = re.match(r"https*:\/\/(.+)?", s3_endpoint)
     if endpoint_parse is not None:
@@ -146,7 +146,7 @@ def get_minio_client(s3_endpoint=None, bucket=None, access_key=None, secret_key=
 
 def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None):
     try:
-        response = get_minio_client(s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
+        response = get_minio_client(request, s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
         client = response["client"]
         result = client.stat_object(bucket_name=bucket, object_name=object_name)
         url = client.presigned_get_object(bucket_name=bucket, object_name=object_name)
