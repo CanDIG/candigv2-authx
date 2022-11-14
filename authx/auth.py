@@ -102,17 +102,17 @@ def get_minio_client(request, s3_endpoint=None, bucket=None, access_key=None, se
         endpoint = s3_endpoint
     if bucket is None:
         bucket = "candigtest"
-    if s3_endpoint is not None:
+    if s3_endpoint is None or s3_endpoint == "play.min.io:9000":
+        endpoint = "play.min.io:9000"
+        access_key="Q3AM3UQ867SPQQA43P2F"
+        secret_key="zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+    else:
         endpoint = s3_endpoint
         response, status_code = get_aws_credential(request, endpoint=endpoint, bucket=bucket)
         if "error" in response:
             raise Exception(response["error"])
         access_key = response["access"]
         secret_key = response["secret"]
-    else:
-        endpoint = "play.min.io:9000"
-        access_key="Q3AM3UQ867SPQQA43P2F"
-        secret_key="zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
 
     from minio import Minio
     if region is None:
