@@ -152,8 +152,8 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
     try:
         response = get_minio_client(request, s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
         client = response["client"]
-        result = client.stat_object(bucket_name=bucket, object_name=object_name)
-        url = client.presigned_get_object(bucket_name=bucket, object_name=object_name)
+        result = client.stat_object(bucket_name=bucket, object_name=object_id)
+        url = client.presigned_get_object(bucket_name=bucket, object_name=object_id)
     except Exception as e:
         return {"message": str(e)}, 500
     return {"url": url}, 200
