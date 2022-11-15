@@ -156,7 +156,7 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
         url = client.presigned_get_object(bucket_name=bucket, object_name=object_id)
     except Exception as e:
         return {"message": str(e)}, 500
-    return {"url": url}, 200
+    return url, 200
 
 
 def parse_aws_credential(awsfile):
