@@ -15,6 +15,9 @@ def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CA
     """
     Is the user associated with the token a site admin?
     """
+    if opa_url is None:
+        print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
+        return True
     if "Authorization" in request.headers:
         token = get_auth_token(request)
         response = requests.post(
@@ -90,23 +93,24 @@ def get_site_admin_token(keycloak_url=KEYCLOAK_PUBLIC_URL):
 
 
 def get_minio_client(request, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
-    # eat any http stuff from endpoint:
-    endpoint_parse = re.match(r"https*:\/\/(.+)?", s3_endpoint)
-    if endpoint_parse is not None:
-        endpoint = endpoint_parse.group(1)
-        
-    # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
-    if "amazonaws.com" in s3_endpoint:
-        endpoint = "s3.amazonaws.com"
-    else:
-        endpoint = s3_endpoint
-    if bucket is None:
-        bucket = "candigtest"
     if s3_endpoint is None or s3_endpoint == "play.min.io:9000":
         endpoint = "play.min.io:9000"
         access_key="Q3AM3UQ867SPQQA43P2F"
         secret_key="zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+        if bucket is None:
+            bucket = "candigtest"
     else:
+        # eat any http stuff from endpoint:
+        endpoint_parse = re.match(r"https*:\/\/(.+)?", s3_endpoint)
+        if endpoint_parse is not None:
+            endpoint = endpoint_parse.group(1)
+            
+        # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
+        if "amazonaws.com" in s3_endpoint:
+            endpoint = "s3.amazonaws.com"
+        else:
+            endpoint = s3_endpoint
+
         endpoint = s3_endpoint
         response, status_code = get_aws_credential(request, endpoint=endpoint, bucket=bucket)
         if "error" in response:
