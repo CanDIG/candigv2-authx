@@ -6,7 +6,7 @@ import requests
 ## Env vars for most auth methods:
 CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
-OPA_URL = os.getenv('OPA_PUBLIC_URL', None)
+OPA_URL = os.getenv('OPA_URL', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 
