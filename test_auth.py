@@ -55,7 +55,7 @@ def test_put_aws_credential():
         print(result, status_code)
         assert status_code == 200
 
-        result, status_code = authx.auth.get_aws_credential(FakeRequest(), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=VAULT_S3_TOKEN)
+        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=VAULT_S3_TOKEN)
         print(result, status_code)
         assert result['secret'] == 'secret'
     else:
@@ -72,7 +72,7 @@ def test_get_s3_url():
     fp = tempfile.NamedTemporaryFile()
     fp.write(bytes(text, 'utf-8'))
     fp.seek(0)
-    minio = authx.auth.get_minio_client(FakeRequest())
+    minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()))
     filename = Path(fp.name).name
     minio['client'].put_object(minio['bucket'], filename, fp, Path(fp.name).stat().st_size)
     fp.close()

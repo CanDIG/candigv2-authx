@@ -82,16 +82,18 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     return allowed_datasets
 
 
-def get_aws_credential(request, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
+def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
     """
     Look up S3 credentials in Vault
     """
+    if token is None:
+        return {"error": f"No Authorization token provided"}, 401
     if vault_s3_token is None:
         return {"error": f"Vault error: service did not provide VAULT_S3_TOKEN"}, 500
     if vault_url is None:
         return {"error": f"Vault error: service did not provide VAULT_URL"}, 500
     if endpoint is None or bucket is None:
-        return {"error": "Error getting S3 credentials: missing either endpoint or bucket"}, 500
+        return {"error": "Error getting S3 credentials: missing either endpoint or bucket"}, 400
 
     # eat any http stuff from endpoint:
     endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
@@ -104,7 +106,7 @@ def get_aws_credential(request, vault_url=VAULT_URL, endpoint=None, bucket=None,
     response = requests.get(
         f"{vault_url}/v1/aws/{endpoint}-{bucket}",
         headers={
-            "Authorization": f"Bearer {get_auth_token(request)}",
+            "Authorization": f"Bearer {token}",
             "X-Vault-Token": vault_s3_token
             }
     )
@@ -113,7 +115,7 @@ def get_aws_credential(request, vault_url=VAULT_URL, endpoint=None, bucket=None,
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
-def get_minio_client(request, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
+def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
     """
     Return a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
@@ -124,7 +126,9 @@ def get_minio_client(request, s3_endpoint=None, bucket=None, access_key=None, se
         if bucket is None:
             bucket = "candigtest"
     else:
-        response, status_code = get_aws_credential(request, endpoint=s3_endpoint, bucket=bucket)
+        if token is None:
+            return {"error": f"No Authorization token provided"}, 401
+        response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
         if "error" in response:
             raise Exception(response["error"])
         access_key = response["access"]
@@ -165,7 +169,7 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
     Return a signed URL for an object stored in an S3 bucket.
     """
     try:
-        response = get_minio_client(request, s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
+        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
