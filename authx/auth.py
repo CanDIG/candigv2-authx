@@ -128,11 +128,12 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     else:
         if token is None:
             return {"error": f"No Authorization token provided"}, 401
-        response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
-        if "error" in response:
-            raise Exception(response["error"])
-        access_key = response["access"]
-        secret_key = response["secret"]
+        if access_key is None:
+            response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
+            if "error" in response:
+                raise Exception(response["error"])
+            access_key = response["access"]
+            secret_key = response["secret"]
 
     from minio import Minio
     if region is None:
