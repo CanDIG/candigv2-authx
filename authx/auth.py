@@ -126,6 +126,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
         if bucket is None:
             bucket = "candigtest"
     else:
+        endpoint = s3_endpoint
         if token is None:
             return {"error": f"No Authorization token provided"}, 401
         if access_key is None:
