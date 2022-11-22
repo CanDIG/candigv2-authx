@@ -40,6 +40,7 @@ def test_get_opa_datasets():
     Get allowed dataset result from OPA
     """
     if OPA_URL is not None:
+        # user2 by default has three datasets, open1, open2, and controlled5
         assert len(authx.auth.get_opa_datasets(FakeRequest())) >= 3
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
@@ -60,7 +61,6 @@ def test_put_aws_credential():
         assert result['secret'] == 'secret'
     else:
         warnings.warn(UserWarning("VAULT_URL is not set"))
-        return authx.auth.get_minio_client(FakeRequest())
 
 
 def test_get_s3_url():
