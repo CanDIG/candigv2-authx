@@ -53,6 +53,34 @@ def get_auth_token(request):
     return token.split()[1]
 
 
+def get_access_token(
+    keycloak_url=KEYCLOAK_PUBLIC_URL,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    username=None,
+    password=None
+    ):
+    if keycloak_url is None:
+        raise Exception("keycloak_url was not provided")
+    if client_id is None or client_secret is None:
+        raise Exception("client_id and client_secret required for token")
+    if username is None or password is None:
+        raise Exception("Username and password required for token")
+    payload = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "password",
+        "username": username,
+        "password": password,
+        "scope": "openid"
+    }
+    response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
+    if response.status_code == 200:
+        return response.json()["access_token"]
+    else:
+        raise Exception(f"Check for environment variables: {response.text}")
+
+
 def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
@@ -178,34 +206,6 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
     except Exception as e:
         return {"message": str(e)}, 500
     return url, 200
-
-
-def get_access_token(
-    keycloak_url=KEYCLOAK_PUBLIC_URL,
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    username=None,
-    password=None
-    ):
-    if keycloak_url is None:
-        raise Exception("keycloak_url was not provided")
-    if client_id is None or client_secret is None:
-        raise Exception("client_id and client_secret required for token")
-    if username is None or password is None:
-        raise Exception("Username and password required for token")
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "password",
-        "username": username,
-        "password": password,
-        "scope": "openid"
-    }
-    response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
-    if response.status_code == 200:
-        return response.json()["access_token"]
-    else:
-        raise Exception(f"Check for environment variables: {response.text}")
 
 
 ### Used for ingest only:
