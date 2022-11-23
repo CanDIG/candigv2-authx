@@ -12,14 +12,21 @@ OPA_URL = os.getenv('OPA_URL', None)
 OPA_SECRET = os.getenv('OPA_SECRET', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
+SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
+SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 
 
 class FakeRequest:
     def __init__(self, token=None):
-        token = authx.auth.get_site_admin_token()
-        if token is None:
+        if KEYCLOAK_PUBLIC_URL is None:
             warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
             token = "testtesttest"
+        else:
+            token = authx.auth.get_access_token(
+                keycloak_url=KEYCLOAK_PUBLIC_URL,
+                username=SITE_ADMIN_USER,
+                password=SITE_ADMIN_PASSWORD
+                )
         self.headers = {"Authorization": f"Bearer {token}"}
         self.path = f"/htsget/v1/variants/search"
         self.method = "GET"

@@ -180,16 +180,19 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
     return url, 200
 
 
-### Used for ingest only:
-def get_site_admin_token(
+def get_access_token(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
-    username=SITE_ADMIN_USER,
-    password=SITE_ADMIN_PASSWORD
+    username=None,
+    password=None
     ):
     if keycloak_url is None:
-        return None
+        raise Exception("keycloak_url was not provided")
+    if client_id is None or client_secret is None:
+        raise Exception("client_id and client_secret required for token")
+    if username is None or password is None:
+        raise Exception("Username and password required for token")
     payload = {
         "client_id": client_id,
         "client_secret": client_secret,
@@ -205,12 +208,17 @@ def get_site_admin_token(
         raise Exception(f"Check for environment variables: {response.text}")
 
 
+### Used for ingest only:
 def store_aws_credential(endpoint=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL):
-    
     if endpoint is None or bucket is None or access is None or secret is None:
         return False, f"Credentials not provided for Vault storage"
     # get client token for site_admin:
-    token = get_site_admin_token(keycloak_url=keycloak_url)
+    token = get_access_token(
+        keycloak_url=keycloak_url,
+        username=SITE_ADMIN_USER,
+        password=SITE_ADMIN_PASSWORD
+        )
+
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
