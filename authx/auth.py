@@ -17,32 +17,6 @@ SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
 SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 
 
-def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
-    """
-    Is the user associated with the token a site admin?
-    """
-    if opa_url is None:
-        print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
-        return True
-    if "Authorization" in request.headers:
-        token = get_auth_token(request)
-        response = requests.post(
-            opa_url + "/v1/data/idp/" + site_admin_key,
-            headers={
-                "X-Opa": f"{admin_secret}",
-                "Authorization": f"Bearer {token}"
-            },
-            json={
-                "input": {
-                        "token": token
-                    }
-                }
-            )
-        if 'result' in response.json():
-            return True
-    return False
-
-
 def get_auth_token(request):
     """
     Extracts token from request's Authorization header
@@ -108,6 +82,32 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     response.raise_for_status()
     allowed_datasets = response.json()["result"]
     return allowed_datasets
+
+
+def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
+    """
+    Is the user associated with the token a site admin?
+    """
+    if opa_url is None:
+        print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
+        return True
+    if "Authorization" in request.headers:
+        token = get_auth_token(request)
+        response = requests.post(
+            opa_url + "/v1/data/idp/" + site_admin_key,
+            headers={
+                "X-Opa": f"{admin_secret}",
+                "Authorization": f"Bearer {token}"
+            },
+            json={
+                "input": {
+                        "token": token
+                    }
+                }
+            )
+        if 'result' in response.json():
+            return True
+    return False
 
 
 def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
