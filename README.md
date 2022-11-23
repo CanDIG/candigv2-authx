@@ -7,7 +7,7 @@ CanDIGv2 has several separate layers that are involved in authentication and aut
 
 Keycloak acts as the identity provider for CanDIGv2. It uses the OpenID protocol to authenticate the user and issue a jwt in the form of a bearer token, identifying the user and their roles to other services. This token is then provided as an Authorization header to other CanDIGv2 services.
 
-`get_access_token` demonstrates the exchange required to get a token. By default, if the proper environment variables are set, it will return a token for the site admin user.
+`get_access_token` demonstrates the exchange required to get a token. 
 
 `get_auth_token` is a convenience method for plucking out the access token from a request's Authorization header.
 
