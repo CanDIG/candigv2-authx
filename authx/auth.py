@@ -143,6 +143,56 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
+def store_aws_credential(endpoint=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL):
+    if endpoint is None or bucket is None or access is None or secret is None:
+        return False, f"Credentials not provided for Vault storage"
+    # get client token for site_admin:
+    token = get_access_token(
+        keycloak_url=keycloak_url,
+        username=SITE_ADMIN_USER,
+        password=SITE_ADMIN_PASSWORD
+        )
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "charset": "utf-8"
+    }
+    body = {
+        "jwt": token,
+        "role": "site_admin"
+    }
+    url = f"{vault_url}/v1/auth/jwt/login"
+    response = requests.post(url, json=body, headers=headers)
+    if response.status_code == 200:
+        client_token = response.json()["auth"]["client_token"]
+        headers["X-Vault-Token"] = client_token
+    else:
+        return response.json(), response.status_code
+
+    # eat any http stuff from endpoint:
+    endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
+    if endpoint_parse is not None:
+        endpoint = endpoint_parse.group(1)
+    # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
+    if "amazonaws.com" in endpoint:
+        endpoint = "s3.amazonaws.com"
+
+    # check to see if credential exists:
+    url = f"{vault_url}/v1/aws/{endpoint}-{bucket}"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 404:
+        # add credential:
+        body = {
+            "access": access,
+            "secret": secret
+        }
+        response = requests.post(url, headers=headers, json=body)
+        if response.status_code >= 200 and response.status_code < 300:
+            return {"message": "Success"}, 200
+    return response.json(), response.status_code
+
+
 def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
     """
     Return a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
@@ -208,56 +258,9 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
     return url, 200
 
 
-### Used for ingest only:
-def store_aws_credential(endpoint=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL):
-    if endpoint is None or bucket is None or access is None or secret is None:
-        return False, f"Credentials not provided for Vault storage"
-    # get client token for site_admin:
-    token = get_access_token(
-        keycloak_url=keycloak_url,
+if __name__ == "__main__":
+    print(get_access_token(
+        keycloak_url=KEYCLOAK_PUBLIC_URL,
         username=SITE_ADMIN_USER,
         password=SITE_ADMIN_PASSWORD
-        )
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "charset": "utf-8"
-    }
-    body = {
-        "jwt": token,
-        "role": "site_admin"
-    }
-    url = f"{vault_url}/v1/auth/jwt/login"
-    response = requests.post(url, json=body, headers=headers)
-    if response.status_code == 200:
-        client_token = response.json()["auth"]["client_token"]
-        headers["X-Vault-Token"] = client_token
-    else:
-        return response.json(), response.status_code
-
-    # eat any http stuff from endpoint:
-    endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
-    if endpoint_parse is not None:
-        endpoint = endpoint_parse.group(1)
-    # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
-    if "amazonaws.com" in endpoint:
-        endpoint = "s3.amazonaws.com"
-
-    # check to see if credential exists:
-    url = f"{vault_url}/v1/aws/{endpoint}-{bucket}"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 404:
-        # add credential:
-        body = {
-            "access": access,
-            "secret": secret
-        }
-        response = requests.post(url, headers=headers, json=body)
-        if response.status_code >= 200 and response.status_code < 300:
-            return {"message": "Success"}, 200
-    return response.json(), response.status_code
-
-
-if __name__ == "__main__":
-    print(get_site_admin_token())
+        ))
