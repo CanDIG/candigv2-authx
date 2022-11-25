@@ -130,6 +130,8 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
     if "amazonaws.com" in endpoint:
         endpoint = "s3.amazonaws.com"
+    # clean up endpoint name:
+    endpoint = re.sub(r"\W", "_", endpoint)
 
     response = requests.get(
         f"{vault_url}/v1/aws/{endpoint}-{bucket}",
@@ -143,7 +145,7 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
-def store_aws_credential(endpoint=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL):
+def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL):
     if endpoint is None or bucket is None or access is None or secret is None:
         return False, f"Credentials not provided for Vault storage"
     # get client token for site_admin:
@@ -177,6 +179,11 @@ def store_aws_credential(endpoint=None, bucket=None, access=None, secret=None, k
     # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
     if "amazonaws.com" in endpoint:
         endpoint = "s3.amazonaws.com"
+    if s3_url is None:
+        s3_url = endpoint
+        
+    # clean up endpoint name:
+    endpoint = re.sub(r"\W", "_", endpoint)
 
     # check to see if credential exists:
     url = f"{vault_url}/v1/aws/{endpoint}-{bucket}"
@@ -184,6 +191,7 @@ def store_aws_credential(endpoint=None, bucket=None, access=None, secret=None, k
     if response.status_code == 404:
         # add credential:
         body = {
+            "url": url,
             "access": access,
             "secret": secret
         }
