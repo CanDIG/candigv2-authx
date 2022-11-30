@@ -120,7 +120,11 @@ def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     Given a known vault_s3_token, exchange for a valid X-Vault-Token.
     Returns token, status_code
     """
-    if token is not None:
+    if vault_url is None:
+        return {"error": f"Vault error: service did not provide VAULT_URL"}, 500
+    if vault_s3_token is None:
+        if token is None:
+            return {"error": f"Vault error: service did not provide VAULT_S3_TOKEN"}, 500
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -133,28 +137,11 @@ def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
         url = f"{vault_url}/v1/auth/jwt/login"
         response = requests.post(url, json=body, headers=headers)
         if response.status_code == 200:
-            return response.json()["auth"]["client_token"], 200
-    if vault_s3_token is not None:
-        return {"error": f"Vault error: service did not provide VAULT_S3_TOKEN"}, 500
-    if vault_url is None:
-        return {"error": f"Vault error: service did not provide VAULT_URL"}, 500
-
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "charset": "utf-8"
-    }
-    body = {
-        "jwt": token,
-        "role": "site_admin"
-    }
-    url = f"{vault_url}/v1/auth/jwt/login"
-    response = requests.post(url, json=body, headers=headers)
-    if response.status_code == 200:
-        client_token = response.json()["auth"]["client_token"]
-        return client_token, 200
-    else:
-        return response.json(), response.status_code
+            client_token = response.json()["auth"]["client_token"]
+            return client_token, 200
+        else:
+            return response.json(), response.status_code
+    return vault_s3_token, 200
 
 
 def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
