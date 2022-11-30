@@ -46,6 +46,8 @@ def test_site_admin():
     if OPA_URL is not None:
         print(f"{OPA_URL} {OPA_SECRET}")
         assert authx.auth.is_site_admin(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+        assert not authx.auth.is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -55,10 +57,12 @@ def test_get_opa_datasets():
     Get allowed dataset result from OPA
     """
     if OPA_URL is not None:
-        # user2 by default has three datasets, open1, open2, and controlled5
+        # user1 has controlled4 in its datasets
         user_datasets = authx.auth.get_opa_datasets(FakeRequest())
         print(user_datasets)
         assert "controlled4" in user_datasets
+        
+        # user2 has controlled5 in its datasets
         user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True))
         print(user_datasets)
         assert "controlled5" in user_datasets
