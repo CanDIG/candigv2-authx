@@ -162,9 +162,9 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
 
-    vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=VAULT_URL)
+    vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=vault_url)
     if status_code != 200:
-        return vault_token, status_code
+        return f"get_vault_token failed: {vault_token}", status_code
     response = requests.get(
         f"{vault_url}/v1/aws/{endpoint}-{bucket}",
         headers={
@@ -203,7 +203,7 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     endpoint = re.sub(r"\W", "_", endpoint)
     vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=vault_url)
     if status_code != 200:
-        return vault_token, status_code
+        return f"get_vault_token failed: {vault_token}", status_code
 
     headers={
         "Authorization": f"Bearer {token}",
