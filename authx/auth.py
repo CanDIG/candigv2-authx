@@ -110,50 +110,28 @@ def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CA
     return False
 
 
-def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
+def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     """
     Look up S3 credentials in Vault
     """
-    if token is None:
-        return {"error": f"No Authorization token provided"}, 401
-    if vault_s3_token is None:
+    if token is not None:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "charset": "utf-8"
+        }
+        body = {
+            "jwt": token,
+            "role": "site_admin"
+        }
+        url = f"{vault_url}/v1/auth/jwt/login"
+        response = requests.post(url, json=body, headers=headers)
+        if response.status_code == 200:
+            return response.json()["auth"]["client_token"], 200
+    if vault_s3_token is not None:
         return {"error": f"Vault error: service did not provide VAULT_S3_TOKEN"}, 500
     if vault_url is None:
         return {"error": f"Vault error: service did not provide VAULT_URL"}, 500
-    if endpoint is None or bucket is None:
-        return {"error": "Error getting S3 credentials: missing either endpoint or bucket"}, 400
-
-    # eat any http stuff from endpoint:
-    endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
-    if endpoint_parse is not None:
-        endpoint = endpoint_parse.group(1)
-    # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
-    if "amazonaws.com" in endpoint:
-        endpoint = "s3.amazonaws.com"
-    # clean up endpoint name:
-    endpoint = re.sub(r"\W", "_", endpoint)
-
-    response = requests.get(
-        f"{vault_url}/v1/aws/{endpoint}-{bucket}",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "X-Vault-Token": vault_s3_token
-            }
-    )
-    if response.status_code == 200:
-        return response.json()["data"], response.status_code
-    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
-
-
-def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL):
-    if endpoint is None or bucket is None or access is None or secret is None:
-        return False, f"Credentials not provided for Vault storage"
-    # get client token for site_admin:
-    token = get_access_token(
-        keycloak_url=keycloak_url,
-        username=SITE_ADMIN_USER,
-        password=SITE_ADMIN_PASSWORD
-        )
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -168,10 +146,52 @@ def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, s
     response = requests.post(url, json=body, headers=headers)
     if response.status_code == 200:
         client_token = response.json()["auth"]["client_token"]
-        headers["X-Vault-Token"] = client_token
+        return client_token, 200
     else:
         return response.json(), response.status_code
 
+
+def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
+    """
+    Look up S3 credentials in Vault.
+    Returns credential object, status code
+    """
+    if endpoint is None or bucket is None:
+        return {"error": "Error getting S3 credentials: missing either endpoint or bucket"}, 400
+
+    # eat any http stuff from endpoint:
+    endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
+    if endpoint_parse is not None:
+        endpoint = endpoint_parse.group(1)
+    # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
+    if "amazonaws.com" in endpoint:
+        endpoint = "s3.amazonaws.com"
+    # clean up endpoint name:
+    endpoint = re.sub(r"\W", "_", endpoint)
+
+    vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=VAULT_URL)
+    if status_code != 200:
+        return vault_token, status_code
+    response = requests.get(
+        f"{vault_url}/v1/aws/{endpoint}-{bucket}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "X-Vault-Token": vault_token
+            }
+    )
+    if response.status_code == 200:
+        result = response.json()['data']
+        result['endpoint'] = endpoint
+        result['bucket'] = bucket
+        return result, response.status_code
+    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
+
+
+def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
+    if endpoint is None or bucket is None or access is None or secret is None:
+        return {"error": "S3 credentials not provided to store in Vault"}, 400
+    if token is None:
+        return {"error": "Bearer token not provided"}, 400
     # eat any http stuff from endpoint:
     endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
     if endpoint_parse is not None:
@@ -184,20 +204,24 @@ def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, s
         
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
+    vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=vault_url)
+    if status_code != 200:
+        return vault_token, status_code
 
-    # check to see if credential exists:
-    url = f"{vault_url}/v1/aws/{endpoint}-{bucket}"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 404:
-        # add credential:
-        body = {
-            "url": url,
-            "access": access,
-            "secret": secret
+    headers={
+        "Authorization": f"Bearer {token}",
+        "X-Vault-Token": vault_token
         }
-        response = requests.post(url, headers=headers, json=body)
-        if response.status_code >= 200 and response.status_code < 300:
-            return {"message": "Success"}, 200
+    url = f"{vault_url}/v1/aws/{endpoint}-{bucket}"
+    body = {
+        "url": s3_url,
+        "access": access,
+        "secret": secret
+    }
+    response = requests.post(url, headers=headers, json=body)
+    if response.status_code >= 200 and response.status_code < 300:
+        response = requests.get(url, headers=headers)
+        return response.json()["data"], 200
     return response.json(), response.status_code
 
 
