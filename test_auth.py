@@ -59,13 +59,13 @@ def test_put_aws_credential():
     """
     if VAULT_URL is not None:
         endpoint = "http://test.endpoint"
-        result, status_code = authx.auth.store_aws_credential(endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL)
+        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL)
         print(result, status_code)
         assert status_code == 200
 
         result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=VAULT_S3_TOKEN)
-        print(result, status_code)
         assert result['secret'] == 'secret'
+        assert result['url'] == 'test.endpoint'
     else:
         warnings.warn(UserWarning("VAULT_URL is not set"))
 
