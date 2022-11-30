@@ -34,6 +34,9 @@ def get_access_token(
     username=None,
     password=None
     ):
+    """
+    Gets a token from the keycloak server.
+    """
     if keycloak_url is None:
         raise Exception("keycloak_url was not provided")
     if client_id is None or client_secret is None:
@@ -58,6 +61,7 @@ def get_access_token(
 def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
+    Returns array of strings
     """
     
     token = get_auth_token(request)
@@ -87,6 +91,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
 def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
     """
     Is the user associated with the token a site admin?
+    Returns boolean.
     """
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
@@ -112,7 +117,8 @@ def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CA
 
 def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     """
-    Look up S3 credentials in Vault
+    Given a known vault_s3_token, exchange for a valid X-Vault-Token.
+    Returns token, status_code
     """
     if token is not None:
         headers = {
@@ -188,6 +194,10 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
 
 
 def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
+    """
+    Store aws credentials in Vault.
+    Returns credential object, status code
+    """
     if endpoint is None or bucket is None or access is None or secret is None:
         return {"error": "S3 credentials not provided to store in Vault"}, 400
     if token is None:
@@ -227,7 +237,7 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
 
 def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
     """
-    Return a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
+    Return an object including a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
     if s3_endpoint is None or s3_endpoint == "play.min.io:9000":
         endpoint = "play.min.io:9000"
@@ -278,7 +288,8 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
 
 def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None):
     """
-    Return a signed URL for an object stored in an S3 bucket.
+    Get a signed URL for an object stored in an S3 bucket.
+    Returns url, status_code
     """
     try:
         response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
@@ -286,7 +297,7 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
     except Exception as e:
-        return {"message": str(e)}, 500
+        return {"error": str(e)}, 500
     return url, 200
 
 
