@@ -58,7 +58,7 @@ def get_access_token(
         raise Exception(f"Check for environment variables: {response.text}")
 
 
-def get_opa_datasets(request, opa_url=OPA_URL):
+def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
     Returns array of strings
@@ -78,6 +78,7 @@ def get_opa_datasets(request, opa_url=OPA_URL):
     response = requests.post(
         opa_url + "/v1/data/permissions/datasets",
         headers={
+            "X-Opa": f"{admin_secret}",
             "Authorization": f"Bearer {token}"
         },
         json=body
