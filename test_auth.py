@@ -57,13 +57,20 @@ def test_get_opa_datasets():
     Get allowed dataset result from OPA
     """
     if OPA_URL is not None:
+        # try to get user1 datasets without OPA_SECRET:
+        try:
+            user_datasets = authx.auth.get_opa_datasets(FakeRequest())
+        except requests.HTTPError as e:
+            # get_opa_datasets should raise an error
+            assert True
+
         # user1 has controlled4 in its datasets
-        user_datasets = authx.auth.get_opa_datasets(FakeRequest())
+        user_datasets = authx.auth.get_opa_datasets(FakeRequest(), admin_secret=OPA_SECRET)
         print(user_datasets)
         assert "controlled4" in user_datasets
         
         # user2 has controlled5 in its datasets
-        user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True))
+        user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
         print(user_datasets)
         assert "controlled5" in user_datasets
     else:
