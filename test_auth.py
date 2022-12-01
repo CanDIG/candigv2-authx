@@ -41,7 +41,7 @@ class FakeRequest:
 
 def test_site_admin():
     """
-    If OPA is present, check to see if user2 is a site admin. Otherwise, just assert True.
+    If OPA is present, check to see if SITE_ADMIN_USER is a site admin and that NOT_ADMIN_USER isn't. Otherwise, just assert True.
     """
     if OPA_URL is not None:
         print(f"{OPA_URL} {OPA_SECRET}")
