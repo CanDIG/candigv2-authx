@@ -14,18 +14,26 @@ VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
 SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
+NOT_ADMIN_USER = os.getenv("CANDIG_NOT_ADMIN_USER", None)
+NOT_ADMIN_PASSWORD = os.getenv("CANDIG_NOT_ADMIN_PASSWORD", None)
 
 
 class FakeRequest:
-    def __init__(self, token=None):
+    def __init__(self, token=None, site_admin=False):
         if KEYCLOAK_PUBLIC_URL is None:
             warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
             token = "testtesttest"
-        else:
+        elif site_admin:
             token = authx.auth.get_access_token(
                 keycloak_url=KEYCLOAK_PUBLIC_URL,
                 username=SITE_ADMIN_USER,
                 password=SITE_ADMIN_PASSWORD
+                )
+        else:
+            token = authx.auth.get_access_token(
+                keycloak_url=KEYCLOAK_PUBLIC_URL,
+                username=NOT_ADMIN_USER,
+                password=NOT_ADMIN_PASSWORD
                 )
         self.headers = {"Authorization": f"Bearer {token}"}
         self.path = f"/htsget/v1/variants/search"
@@ -33,11 +41,13 @@ class FakeRequest:
 
 def test_site_admin():
     """
-    If OPA is present, check to see if user2 is a site admin. Otherwise, just assert True.
+    If OPA is present, check to see if SITE_ADMIN_USER is a site admin and that NOT_ADMIN_USER isn't. Otherwise, just assert True.
     """
     if OPA_URL is not None:
         print(f"{OPA_URL} {OPA_SECRET}")
-        assert authx.auth.is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+        assert authx.auth.is_site_admin(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+        assert not authx.auth.is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -47,8 +57,22 @@ def test_get_opa_datasets():
     Get allowed dataset result from OPA
     """
     if OPA_URL is not None:
-        # user2 by default has three datasets, open1, open2, and controlled5
-        assert len(authx.auth.get_opa_datasets(FakeRequest())) >= 3
+        # try to get user1 datasets without OPA_SECRET:
+        try:
+            user_datasets = authx.auth.get_opa_datasets(FakeRequest())
+        except requests.HTTPError as e:
+            # get_opa_datasets should raise an error
+            assert True
+
+        # user1 has controlled4 in its datasets
+        user_datasets = authx.auth.get_opa_datasets(FakeRequest(), admin_secret=OPA_SECRET)
+        print(user_datasets)
+        assert "controlled4" in user_datasets
+        
+        # user2 has controlled5 in its datasets
+        user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
+        print(user_datasets)
+        assert "controlled5" in user_datasets
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -59,13 +83,20 @@ def test_put_aws_credential():
     """
     if VAULT_URL is not None:
         endpoint = "http://test.endpoint"
-        result, status_code = authx.auth.store_aws_credential(endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL)
+        # store credential using vault_s3_token and not-site-admin token
+        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
         print(result, status_code)
         assert status_code == 200
 
-        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=VAULT_S3_TOKEN)
-        print(result, status_code)
+        # try getting it with a non-site_admin token
+        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
+        print(result)
+        assert "errors" in result
+        
+        # try getting it with a site_admin token
+        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest(site_admin=True)), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
         assert result['secret'] == 'secret'
+        assert result['url'] == 'test.endpoint'
     else:
         warnings.warn(UserWarning("VAULT_URL is not set"))
 
