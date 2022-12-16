@@ -218,7 +218,9 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     response = requests.post(url, headers=headers, json=body)
     if response.status_code >= 200 and response.status_code < 300:
         response = requests.get(url, headers=headers)
-        return response.json()["data"], 200
+        result = response.json()["data"]
+        result["endpoint"] = endpoint
+        return result, 200
     return response.json(), response.status_code
 
 
