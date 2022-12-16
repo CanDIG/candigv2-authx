@@ -244,6 +244,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
                 raise Exception(response["error"])
             access_key = response["access"]
             secret_key = response["secret"]
+            endpoint = response["url"]
 
     from minio import Minio
     if region is None:
