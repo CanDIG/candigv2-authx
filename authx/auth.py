@@ -63,9 +63,9 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     Get allowed dataset result from OPA
     Returns array of strings
     """
-    
+
     token = get_auth_token(request)
-    
+
     body = {
         "input": {
             "token": token,
@@ -180,7 +180,7 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
-def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
+def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
     """
     Store aws credentials in Vault.
     Returns credential object, status code
@@ -198,7 +198,7 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
         endpoint = "s3.amazonaws.com"
     if s3_url is None:
         s3_url = endpoint
-        
+
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
     vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=vault_url)
@@ -266,7 +266,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
 
     return {
         "endpoint": endpoint,
-        "client": client, 
+        "client": client,
         "bucket": bucket,
         "access": access_key,
         "secret": secret_key
