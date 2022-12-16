@@ -68,7 +68,7 @@ def test_get_opa_datasets():
         user_datasets = authx.auth.get_opa_datasets(FakeRequest(), admin_secret=OPA_SECRET)
         print(user_datasets)
         assert "controlled4" in user_datasets
-        
+
         # user2 has controlled5 in its datasets
         user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
         print(user_datasets)
@@ -84,7 +84,7 @@ def test_put_aws_credential():
     if VAULT_URL is not None:
         endpoint = "http://test.endpoint"
         # store credential using vault_s3_token and not-site-admin token
-        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", keycloak_url=KEYCLOAK_PUBLIC_URL, vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
+        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
         print(result, status_code)
         assert status_code == 200
 
@@ -92,7 +92,7 @@ def test_put_aws_credential():
         result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
         print(result)
         assert "errors" in result
-        
+
         # try getting it with a site_admin token
         result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest(site_admin=True)), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
         assert result['secret'] == 'secret'
