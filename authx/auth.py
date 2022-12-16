@@ -190,9 +190,12 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     if token is None:
         return {"error": "Bearer token not provided"}, 400
     # eat any http stuff from endpoint:
-    endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
+    secure = True
+    endpoint_parse = re.match(r"(https*):\/\/(.+)?", endpoint)
     if endpoint_parse is not None:
-        endpoint = endpoint_parse.group(1)
+        endpoint = endpoint_parse.group(2)
+        if endpoint_parse.group(1) == "http":
+            secure = False
     # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
     if "amazonaws.com" in endpoint:
         endpoint = "s3.amazonaws.com"
@@ -213,7 +216,8 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     body = {
         "url": s3_url,
         "access": access,
-        "secret": secret
+        "secret": secret,
+        "secure": secure
     }
     response = requests.post(url, headers=headers, json=body)
     if response.status_code >= 200 and response.status_code < 300:
