@@ -63,9 +63,9 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     Get allowed dataset result from OPA
     Returns array of strings
     """
-    
+
     token = get_auth_token(request)
-    
+
     body = {
         "input": {
             "token": token,
@@ -180,7 +180,7 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
-def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, keycloak_url=KEYCLOAK_PUBLIC_URL, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
+def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
     """
     Store aws credentials in Vault.
     Returns credential object, status code
@@ -190,15 +190,18 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     if token is None:
         return {"error": "Bearer token not provided"}, 400
     # eat any http stuff from endpoint:
-    endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
+    secure = True
+    endpoint_parse = re.match(r"(https*):\/\/(.+)?", endpoint)
     if endpoint_parse is not None:
-        endpoint = endpoint_parse.group(1)
+        endpoint = endpoint_parse.group(2)
+        if endpoint_parse.group(1) == "http":
+            secure = False
     # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
     if "amazonaws.com" in endpoint:
         endpoint = "s3.amazonaws.com"
     if s3_url is None:
         s3_url = endpoint
-        
+
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
     vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=vault_url)
@@ -213,12 +216,15 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     body = {
         "url": s3_url,
         "access": access,
-        "secret": secret
+        "secret": secret,
+        "secure": secure
     }
     response = requests.post(url, headers=headers, json=body)
     if response.status_code >= 200 and response.status_code < 300:
         response = requests.get(url, headers=headers)
-        return response.json()["data"], 200
+        result = response.json()["data"]
+        result["endpoint"] = endpoint
+        return result, 200
     return response.json(), response.status_code
 
 
@@ -226,8 +232,10 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     """
     Return an object including a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
+    secure = True
     if s3_endpoint is None or s3_endpoint == "play.min.io:9000":
         endpoint = "play.min.io:9000"
+        url = endpoint
         access_key="Q3AM3UQ867SPQQA43P2F"
         secret_key="zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
         if bucket is None:
@@ -242,20 +250,24 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
                 raise Exception(response["error"])
             access_key = response["access"]
             secret_key = response["secret"]
+            url = response["url"]
+            secure = response["secure"]
 
     from minio import Minio
     if region is None:
         client = Minio(
-            endpoint = endpoint,
+            endpoint = url,
             access_key = access_key,
-            secret_key = secret_key
+            secret_key = secret_key,
+            secure = secure
         )
     else:
         client = Minio(
-            endpoint = endpoint,
+            endpoint = url,
             access_key = access_key,
             secret_key = secret_key,
-            region = region
+            region = region,
+            secure = secure
         )
 
     if not client.bucket_exists(bucket):
@@ -266,7 +278,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
 
     return {
         "endpoint": endpoint,
-        "client": client, 
+        "client": client,
         "bucket": bucket,
         "access": access_key,
         "secret": secret_key
