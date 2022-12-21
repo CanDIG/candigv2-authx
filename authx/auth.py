@@ -256,7 +256,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
             if endpoint_parse is not None:
                 url = endpoint_parse.group(2)
                 if endpoint_parse.group(1) == "http":
-                secure = False
+                    secure = False
 
     from minio import Minio
     if region is None:
