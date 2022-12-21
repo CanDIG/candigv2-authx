@@ -228,11 +228,10 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     return response.json(), response.status_code
 
 
-def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None):
+def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None, secure=True):
     """
     Return an object including a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
-    secure = True
     if s3_endpoint is None or s3_endpoint == "play.min.io:9000":
         endpoint = "play.min.io:9000"
         url = endpoint
@@ -252,6 +251,12 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
             secret_key = response["secret"]
             url = response["url"]
             secure = response["secure"]
+        else:
+            endpoint_parse = re.match(r"(https*):\/\/(.+)?", endpoint)
+            if endpoint_parse is not None:
+                url = endpoint_parse.group(2)
+                if endpoint_parse.group(1) == "http":
+                    secure = False
 
     from minio import Minio
     if region is None:
