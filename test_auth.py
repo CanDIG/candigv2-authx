@@ -128,6 +128,8 @@ def test_get_s3_url():
     response = requests.get(url)
     print(response.text)
     assert response.text == str(text)
+    minio['client'].remove_object(minio['bucket'], filename)
+
 
 def test_get_public_s3_url():
     url, status_code = authx.auth.get_s3_url(FakeRequest(), public=True, bucket="1000genomes", s3_endpoint="http://s3.us-east-1.amazonaws.com", object_id="README.ebi_aspera_info", access_key=None, secret_key=None, region="us-east-1")
