@@ -232,7 +232,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     """
     Return an object including a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
-    url = "play.min.io:9000"
+    # url = "play.min.io:9000"
     if s3_endpoint is None or s3_endpoint == "play.min.io:9000":
         endpoint = "play.min.io:9000"
         access_key="Q3AM3UQ867SPQQA43P2F"
@@ -257,7 +257,8 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
                 url = endpoint_parse.group(2)
                 if endpoint_parse.group(1) == "http":
                     secure = False
-
+            else:
+                url = endpoint
     from minio import Minio
     if region is None:
         client = Minio(
