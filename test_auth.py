@@ -101,24 +101,30 @@ def test_put_aws_credential():
         warnings.warn(UserWarning("VAULT_URL is not set"))
 
 
-def test_get_s3_url():
-    """
-    Put something in a minio bucket (playbox endpoint) and then get it back
-    """
-    text = "test test"
+# def test_get_s3_url():
+#     """
+#     Put something in a minio bucket (playbox endpoint) and then get it back
+#     """
+#     text = "test test"
+#
+#     fp = tempfile.NamedTemporaryFile()
+#     fp.write(bytes(text, 'utf-8'))
+#     fp.seek(0)
+#     minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()))
+#     filename = Path(fp.name).name
+#     minio['client'].put_object(minio['bucket'], filename, fp, Path(fp.name).stat().st_size)
+#     fp.close()
+#
+#     url, status_code = authx.auth.get_s3_url(FakeRequest(), object_id=filename)
+#     print(url)
+#     assert status_code == 200
+#
+#     response = requests.get(url)
+#     print(response.text)
+#     assert response.text == str(text)
 
-    fp = tempfile.NamedTemporaryFile()
-    fp.write(bytes(text, 'utf-8'))
-    fp.seek(0)
-    minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()))
-    filename = Path(fp.name).name
-    minio['client'].put_object(minio['bucket'], filename, fp, Path(fp.name).stat().st_size)
-    fp.close()
-
-    url, status_code = authx.auth.get_s3_url(FakeRequest(), object_id=filename)
-    print(url)
-    assert status_code == 200
-
+def test_get_public_s3_url():
+    url, status_code = authx.auth.get_s3_url(FakeRequest(), public=True, bucket="1000genomes", s3_endpoint="http://s3.us-east-1.amazonaws.com", object_id="README.ebi_aspera_info", access_key=None, secret_key=None, region="us-east-1")
     response = requests.get(url)
     print(response.text)
-    assert response.text == str(text)
+    assert "If you wish to use aspera" in response.text
