@@ -2,6 +2,17 @@ language: python
 python:
   - 3.9
 
+services:
+  - docker
+
+env:
+  - MINIO_ROOT_USER=minioadmin MINIO_ROOT_PASSWORD=minioadmin MINIO_URL=http://localhost:9000 MINIO_ACCESS_KEY=minioadmin MINIO_SECRET_KEY=minioadmin
+
+before_install:
+  - docker pull minio/minio
+  - docker create -p9090:9090 -p9000:9000 -p9001:9001 minio/minio minio server /data | xargs -I{} docker start {}
+  - docker ps -a
+
 cache: pip
 install:
   - pip install -r requirements.txt

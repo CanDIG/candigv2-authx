@@ -23,7 +23,7 @@ def get_auth_token(request):
     """
     token = request.headers['Authorization']
     if token is None:
-        return ""
+        return None
     return token.split()[1]
 
 
@@ -228,22 +228,22 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     return response.json(), response.status_code
 
 
-def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None, secure=True):
+def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None, secure=True, public=False):
     """
     Return an object including a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
+    # url = "play.min.io:9000"
     if s3_endpoint is None or s3_endpoint == "play.min.io:9000":
         endpoint = "play.min.io:9000"
-        url = endpoint
         access_key="Q3AM3UQ867SPQQA43P2F"
         secret_key="zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
         if bucket is None:
             bucket = "candigtest"
     else:
         endpoint = s3_endpoint
-        if token is None:
-            return {"error": f"No Authorization token provided"}, 401
-        if access_key is None:
+        if access_key is None and not public:
+            if token is None:
+                return {"error": f"No Authorization token provided"}, 401
             response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
             if "error" in response:
                 raise Exception(response["error"])
@@ -257,7 +257,8 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
                 url = endpoint_parse.group(2)
                 if endpoint_parse.group(1) == "http":
                     secure = False
-
+            else:
+                url = endpoint
     from minio import Minio
     if region is None:
         client = Minio(
@@ -290,13 +291,13 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     }
 
 
-def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None):
+def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None, public=False):
     """
     Get a signed URL for an object stored in an S3 bucket.
     Returns url, status_code
     """
     try:
-        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region)
+        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region, public=public)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
