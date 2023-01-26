@@ -119,7 +119,8 @@ def test_get_s3_url():
             assert result['url'] in MINIO_URL
             minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, bucket="test")
             assert minio['endpoint'] == MINIO_URL
-
+        else:
+            warnings.warn(UserWarning("VAULT_URL is not set"))
         minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, bucket="test")
     else:
         minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()))
