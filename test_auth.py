@@ -114,6 +114,12 @@ def test_get_s3_url():
     fp.write(bytes(text, 'utf-8'))
     fp.seek(0)
     if MINIO_URL is not None:
+        if VAULT_URL is not None:
+            result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=MINIO_URL, bucket="test", access=MINIO_ACCESS_KEY, secret=MINIO_SECRET_KEY, vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
+            assert result['url'] in MINIO_URL
+            minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, bucket="test")
+            assert minio['endpoint'] == MINIO_URL
+
         minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, bucket="test")
     else:
         minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()))
