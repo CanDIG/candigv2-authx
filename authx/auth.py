@@ -324,9 +324,12 @@ if __name__ == "__main__":
         ))
 
 
-def decode_verify_token(token):
+def decode_verify_token(token, issuer):
     # the token is a valid CanDIG token from the new server: it contains its issuer and audience
     data = jwt.decode(token, options={"verify_signature": False})
+    if data['iss'] != issuer:
+        raise Exception(f"The token's iss ({data['iss']}) does not match the issuer ({issuer})")
+
     url = f"{data['iss']}/.well-known/openid-configuration"
     response = requests.request("GET", url)
     if response.status_code == 200:
@@ -345,8 +348,8 @@ def decode_verify_token(token):
     return None
 
 
-def add_provider_to_tyk_api(api_id, token, policy_id=TYK_POLICY_ID):
-    jwt = decode_verify_token(token)
+def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
+    jwt = decode_verify_token(token, issuer)
     client_id_64 = base64.b64encode(bytes(jwt['azp'], 'utf-8')).decode('utf-8')
     new_provider = {
         "issuer": jwt['iss'],
@@ -388,13 +391,13 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
     return response
 
 
-def add_provider_to_opa(token, test_key=None):
+def add_provider_to_opa(token, issuer, test_key=None):
     headers = { 'X-Opa': OPA_SECRET, 'Authorization': f"Bearer {get_site_admin_token()}" }
     url = f"{OPA_URL}/v1/data/keys"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         data = response.json()['result']
-        jwt = decode_verify_token(token)
+        jwt = decode_verify_token(token, issuer)
         response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
         if response.status_code == 200:
             response = requests.get(response.json()["jwks_uri"])

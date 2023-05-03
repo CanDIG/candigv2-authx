@@ -57,7 +57,7 @@ def test_add_opa_provider():
         username=SITE_ADMIN_USER,
         password=SITE_ADMIN_PASSWORD
         )
-        response = authx.auth.add_provider_to_opa(token, test_key="testtest")
+        response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key="testtest")
         assert response.status_code == 200
         print(response.json())
     else:
@@ -197,7 +197,7 @@ def test_tyk_api():
     username=SITE_ADMIN_USER,
     password=SITE_ADMIN_PASSWORD
     )
-    response = authx.auth.add_provider_to_tyk_api("91", token, policy_id="testtest")
+    response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id="testtest")
     assert response.status_code == 200
     response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id="testtest")
     assert response.status_code == 200
