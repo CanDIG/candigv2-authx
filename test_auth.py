@@ -188,6 +188,10 @@ def test_get_public_s3_url():
 
 
 def test_tyk_api():
+    if KEYCLOAK_PUBLIC_URL is None:
+        warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
+        return
+
     token = authx.auth.get_access_token(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     username=SITE_ADMIN_USER,
