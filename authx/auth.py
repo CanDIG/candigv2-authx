@@ -365,7 +365,7 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
         api_json['openid_options']['providers'].append(new_provider)
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
-            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", headers=headers)
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
             print("reloaded")
             return requests.request("GET", url, headers=headers)
     return response
@@ -388,7 +388,8 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
         api_json['openid_options']['providers'] = new_providers
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
-            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", headers=headers)
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            print("reloaded")
             return requests.request("GET", url, headers=headers)
     return response
 
