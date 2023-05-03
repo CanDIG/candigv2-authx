@@ -395,7 +395,7 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
 
 
 def add_provider_to_opa(token, issuer, test_key=None):
-    headers = { 'X-Opa': OPA_SECRET, 'Authorization': f"Bearer {get_site_admin_token()}" }
+    headers = { 'X-Opa': OPA_SECRET }
     url = f"{OPA_URL}/v1/data/keys"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
@@ -415,7 +415,7 @@ def add_provider_to_opa(token, issuer, test_key=None):
 
 
 def remove_provider_from_opa(issuer, test_key=None):
-    headers = { 'X-Opa': OPA_SECRET, 'Authorization': f"Bearer {get_site_admin_token()}" }
+    headers = { 'X-Opa': OPA_SECRET }
     url = f"{OPA_URL}/v1/data/keys"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
