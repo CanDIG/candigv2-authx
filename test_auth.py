@@ -42,6 +42,21 @@ class FakeRequest:
         self.path = f"/htsget/v1/variants/search"
         self.method = "GET"
 
+
+def test_add_opa_provider():
+    if OPA_URL is not None:
+        token = authx.auth.get_access_token(
+        keycloak_url=KEYCLOAK_PUBLIC_URL,
+        username=SITE_ADMIN_USER,
+        password=SITE_ADMIN_PASSWORD
+        )
+        response = authx.auth.add_provider_to_opa(token, test_key="testtest")
+        assert response.status_code == 200
+        print(response.json())
+    else:
+        warnings.warn(UserWarning("OPA_URL is not set"))
+
+
 def test_site_admin():
     """
     If OPA is present, check to see if SITE_ADMIN_USER is a site admin and that NOT_ADMIN_USER isn't. Otherwise, just assert True.
@@ -51,6 +66,19 @@ def test_site_admin():
         assert authx.auth.is_site_admin(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
         assert not authx.auth.is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
 
+    else:
+        warnings.warn(UserWarning("OPA_URL is not set"))
+
+
+def test_remove_opa_provider():
+    if OPA_URL is not None:
+        token = authx.auth.get_access_token(
+        keycloak_url=KEYCLOAK_PUBLIC_URL,
+        username=SITE_ADMIN_USER,
+        password=SITE_ADMIN_PASSWORD
+        )
+        response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key="testtest")
+        assert response.status_code == 200
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -157,14 +185,3 @@ def test_tyk_api():
     assert response.status_code == 200
 
 
-def test_opa_provider():
-    token = authx.auth.get_access_token(
-    keycloak_url=KEYCLOAK_PUBLIC_URL,
-    username=SITE_ADMIN_USER,
-    password=SITE_ADMIN_PASSWORD
-    )
-    response = authx.auth.add_provider_to_opa(token, test_key="testtest")
-    assert response.status_code == 200
-    print(response.json())
-    response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key="testtest")
-    assert response.status_code == 20
