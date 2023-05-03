@@ -47,6 +47,9 @@ def test_add_opa_provider():
     """
     If OPA is present, try adding a new provider (just ourselves again). Otherwise, just assert True.
     """
+    if KEYCLOAK_PUBLIC_URL is None:
+        warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
+        return
 
     if OPA_URL is not None:
         token = authx.auth.get_access_token(
@@ -78,6 +81,10 @@ def test_remove_opa_provider():
     """
     If OPA is present, remove the test provider we added before. Otherwise, just assert True.
     """
+    if KEYCLOAK_PUBLIC_URL is None:
+        warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
+        return
+
     if OPA_URL is not None:
         token = authx.auth.get_access_token(
         keycloak_url=KEYCLOAK_PUBLIC_URL,
