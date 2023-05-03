@@ -7,11 +7,15 @@ with open("README.md", "r") as rf:
 
 setuptools.setup(
     name="candigv2_authx",
-    version="v1.0.0",
+    version="v1.1.0",
     author="Daisie Huang",
     python_requires=">=3.7",
     install_requires=[
-        "requests>=2.25.1,<3.0"
+        "requests>=2.25.1,<3.0",
+        "minio>=7.1.7",
+        "pytest==7.2.0",
+        "PyJWT>=2.6.0",
+        "cryptography>=3.4.0"
     ],
 
     description="Common authentication and authorization methods for CanDIGv2",
