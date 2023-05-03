@@ -1,6 +1,8 @@
 import os
 import re
 import requests
+import jwt
+import base64
 
 
 ## Env vars for most auth methods:
@@ -9,6 +11,9 @@ KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_URL', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
+TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
+TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
+TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -312,3 +317,67 @@ if __name__ == "__main__":
         username=SITE_ADMIN_USER,
         password=SITE_ADMIN_PASSWORD
         ))
+
+
+def decode_verify_token(token):
+    # the token is a valid CanDIG token from the new server: it contains its issuer and audience
+    data = jwt.decode(token, options={"verify_signature": False})
+    url = f"{data['iss']}/.well-known/openid-configuration"
+    response = requests.request("GET", url)
+    if response.status_code == 200:
+        cert_url = response.json()['jwks_uri']
+        response = requests.request("GET", cert_url)
+        jwks_client = jwt.PyJWKClient(cert_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        data = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=data['azp'],
+            options={'verify_exp': False}
+        )
+        return data
+    return None
+
+
+def add_provider_to_tyk_api(api_id, token, policy_id=TYK_POLICY_ID):
+    jwt = decode_verify_token(token)
+    client_id_64 = base64.b64encode(bytes(jwt['azp'], 'utf-8')).decode('utf-8')
+    new_provider = {
+        "issuer": jwt['iss'],
+        "client_ids": {
+            client_id_64: policy_id
+        }
+    }
+    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
+    headers = { "x-tyk-authorization": TYK_SECRET_KEY }
+    response = requests.request("GET", url, headers=headers)
+    if response.status_code == 200:
+        api_json = response.json()
+        api_json['openid_options']['providers'].append(new_provider)
+        response = requests.request("PUT", url, headers=headers, json=api_json)
+        if response.status_code == 200:
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", headers=headers)
+            print("reloaded")
+            return requests.request("GET", url, headers=headers)
+    return response
+
+
+def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
+    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
+    headers = { "x-tyk-authorization": TYK_SECRET_KEY }
+    response = requests.request("GET", url, headers=headers)
+    if response.status_code == 200:
+        api_json = response.json()
+        new_providers = []
+        for p in api_json['openid_options']['providers']:
+            if issuer not in p['issuer']:
+                if policy_id not in p['client_ids'].values():
+                    new_providers.append(p)
+
+        api_json['openid_options']['providers'] = new_providers
+        response = requests.request("PUT", url, headers=headers, json=api_json)
+        if response.status_code == 200:
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", headers=headers)
+            return requests.request("GET", url, headers=headers)
+    return response

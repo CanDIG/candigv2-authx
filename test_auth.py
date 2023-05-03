@@ -143,3 +143,15 @@ def test_get_public_s3_url():
     response = requests.get(url)
     print(response.text)
     assert "If you wish to use aspera" in response.text
+
+
+def test_tyk_api():
+    token = authx.auth.get_access_token(
+    keycloak_url=KEYCLOAK_PUBLIC_URL,
+    username=SITE_ADMIN_USER,
+    password=SITE_ADMIN_PASSWORD
+    )
+    response = authx.auth.add_provider_to_tyk_api("91", token, policy_id="testtest")
+    assert response.status_code == 200
+    response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id="testtest")
+    assert response.status_code == 200
