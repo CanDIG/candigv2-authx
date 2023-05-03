@@ -416,7 +416,6 @@ def remove_provider_from_opa(issuer, test_key=None):
         data = response.json()['result']
         new_providers = []
         for p in data:
-            print(f"looking at {p['iss']}")
             if issuer in p['iss']:
                 if test_key is None:
                     new_providers.append(p)
@@ -425,7 +424,6 @@ def remove_provider_from_opa(issuer, test_key=None):
                         if p['test'] != test_key:
                             new_providers.append(p)
                     else:
-                        print("hello")
                         new_providers.append(p)
             else:
                 new_providers.append(p)
