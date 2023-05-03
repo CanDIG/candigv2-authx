@@ -70,12 +70,12 @@ def test_get_opa_datasets():
         # user1 has controlled4 in its datasets
         user_datasets = authx.auth.get_opa_datasets(FakeRequest(), admin_secret=OPA_SECRET)
         print(user_datasets)
-        assert "controlled4" in user_datasets
+        assert "SYNTHETIC-1" in user_datasets
 
         # user2 has controlled5 in its datasets
         user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
         print(user_datasets)
-        assert "controlled5" in user_datasets
+        assert "SYNTHETIC-2" in user_datasets
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
