@@ -425,7 +425,6 @@ def remove_provider_from_opa(issuer, test_key=None):
                         if p['test'] != test_key:
                             new_providers.append(p)
                     else:
-                        print("hello")
                         new_providers.append(p)
             else:
                 new_providers.append(p)
