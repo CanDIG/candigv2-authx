@@ -5,6 +5,8 @@ import authx.auth
 import tempfile
 from pathlib import Path
 import warnings
+import time
+
 
 CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
@@ -19,6 +21,8 @@ NOT_ADMIN_PASSWORD = os.getenv("CANDIG_NOT_ADMIN_PASSWORD", None)
 MINIO_URL = os.getenv("MINIO_URL", None)
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", None)
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", None)
+TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
+TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
 
 
 class FakeRequest:
@@ -57,9 +61,16 @@ def test_add_opa_provider():
         username=SITE_ADMIN_USER,
         password=SITE_ADMIN_PASSWORD
         )
-        response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key="testtest")
-        assert response.status_code == 200
+        test_key="testtest"
+        response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
         print(response.json())
+        assert response.status_code == 200
+        found = False
+        for p in response.json()['result']:
+            if 'test' in p and p['test'] == test_key:
+                found = True
+        assert found
+
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -91,8 +102,14 @@ def test_remove_opa_provider():
         username=SITE_ADMIN_USER,
         password=SITE_ADMIN_PASSWORD
         )
-        response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key="testtest")
+        test_key="testtest"
+        response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key=test_key)
         assert response.status_code == 200
+        found = False
+        for p in response.json()['result']:
+            if 'test' in p and p['test'] == test_key:
+                found = True
+        assert not found
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -197,9 +214,27 @@ def test_tyk_api():
     username=SITE_ADMIN_USER,
     password=SITE_ADMIN_PASSWORD
     )
-    response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id="testtest")
+    policy_id="testtest"
+    response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id=policy_id)
     assert response.status_code == 200
-    response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id="testtest")
+    time.sleep(1) # tyk takes a second to refresh this after reloading
+    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/91"
+    headers = { "x-tyk-authorization": TYK_SECRET_KEY }
+    response = requests.request("GET", url, headers=headers)
+    print(response.json()['openid_options']['providers'])
+    found = False
+    for p in response.json()['openid_options']['providers']:
+        if policy_id in p['client_ids'].values():
+            found = True
+    assert found
+    response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id=policy_id)
+    time.sleep(1) # tyk takes a second to refresh this after reloading
     assert response.status_code == 200
-
+    response = requests.request("GET", url, headers=headers)
+    print(response.json()['openid_options']['providers'])
+    found = False
+    for p in response.json()['openid_options']['providers']:
+        if policy_id in p['client_ids'].values():
+            found = True
+    assert not found
 
