@@ -380,6 +380,8 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
         new_providers = []
         for p in api_json['openid_options']['providers']:
             if issuer not in p['issuer']:
+                new_providers.append(p)
+            else:
                 if policy_id not in p['client_ids'].values():
                     new_providers.append(p)
 
