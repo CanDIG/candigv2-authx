@@ -9,6 +9,7 @@ import base64
 CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_URL', None)
+OPA_SECRET = os.getenv('OPA_SECRET', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
@@ -61,6 +62,10 @@ def get_access_token(
         return response.json()["access_token"]
     else:
         raise Exception(f"Check for environment variables: {response.text}")
+
+
+def get_site_admin_token():
+    return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
 
 def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
@@ -381,3 +386,52 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
             response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", headers=headers)
             return requests.request("GET", url, headers=headers)
     return response
+
+
+def add_provider_to_opa(token, test_key=None):
+    headers = { 'X-Opa': OPA_SECRET, 'Authorization': f"Bearer {get_site_admin_token()}" }
+    url = f"{OPA_URL}/v1/data/keys"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()['result']
+        jwt = decode_verify_token(token)
+        response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
+        if response.status_code == 200:
+            response = requests.get(response.json()["jwks_uri"])
+            if response.status_code == 200:
+                new_provider = {"iss": jwt['iss'], "cert": response.text}
+                if test_key is not None:
+                    new_provider['test'] = test_key
+                data.append(new_provider)
+                response = requests.put(url, headers=headers, json=data)
+                return requests.get(url, headers=headers)
+    return response
+
+
+def remove_provider_from_opa(issuer, test_key=None):
+    headers = { 'X-Opa': OPA_SECRET, 'Authorization': f"Bearer {get_site_admin_token()}" }
+    url = f"{OPA_URL}/v1/data/keys"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()['result']
+        new_providers = []
+        for p in data:
+            print(f"looking at {p['iss']}")
+            if issuer in p['iss']:
+                if test_key is None:
+                    new_providers.append(p)
+                else:
+                    if "test" in p:
+                        if p['test'] != test_key:
+                            new_providers.append(p)
+                    else:
+                        print("hello")
+                        new_providers.append(p)
+            else:
+                new_providers.append(p)
+
+        response = requests.put(url, headers=headers, json=new_providers)
+        return requests.get(url, headers=headers)
+    return response
+
+

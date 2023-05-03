@@ -155,3 +155,16 @@ def test_tyk_api():
     assert response.status_code == 200
     response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id="testtest")
     assert response.status_code == 200
+
+
+def test_opa_provider():
+    token = authx.auth.get_access_token(
+    keycloak_url=KEYCLOAK_PUBLIC_URL,
+    username=SITE_ADMIN_USER,
+    password=SITE_ADMIN_PASSWORD
+    )
+    response = authx.auth.add_provider_to_opa(token, test_key="testtest")
+    assert response.status_code == 200
+    print(response.json())
+    response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key="testtest")
+    assert response.status_code == 20
