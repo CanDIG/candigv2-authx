@@ -1,14 +1,20 @@
 import os
 import re
 import requests
+import jwt
+import base64
 
 
 ## Env vars for most auth methods:
 CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_URL', None)
+OPA_SECRET = os.getenv('OPA_SECRET', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
+TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
+TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
+TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -56,6 +62,10 @@ def get_access_token(
         return response.json()["access_token"]
     else:
         raise Exception(f"Check for environment variables: {response.text}")
+
+
+def get_site_admin_token():
+    return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
 
 def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
@@ -312,3 +322,120 @@ if __name__ == "__main__":
         username=SITE_ADMIN_USER,
         password=SITE_ADMIN_PASSWORD
         ))
+
+
+def decode_verify_token(token, issuer):
+    # the token is a valid CanDIG token from the new server: it contains its issuer and audience
+    data = jwt.decode(token, options={"verify_signature": False})
+    if data['iss'] != issuer:
+        raise Exception(f"The token's iss ({data['iss']}) does not match the issuer ({issuer})")
+
+    url = f"{data['iss']}/.well-known/openid-configuration"
+    response = requests.request("GET", url)
+    if response.status_code == 200:
+        cert_url = response.json()['jwks_uri']
+        response = requests.request("GET", cert_url)
+        jwks_client = jwt.PyJWKClient(cert_url)
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        data = jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=data['azp'],
+            options={'verify_exp': False}
+        )
+        return data
+    return None
+
+
+def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
+    jwt = decode_verify_token(token, issuer)
+    client_id_64 = base64.b64encode(bytes(jwt['azp'], 'utf-8')).decode('utf-8')
+    new_provider = {
+        "issuer": jwt['iss'],
+        "client_ids": {
+            client_id_64: policy_id
+        }
+    }
+    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
+    headers = { "x-tyk-authorization": TYK_SECRET_KEY }
+    response = requests.request("GET", url, headers=headers)
+    if response.status_code == 200:
+        api_json = response.json()
+        api_json['openid_options']['providers'].append(new_provider)
+        response = requests.request("PUT", url, headers=headers, json=api_json)
+        if response.status_code == 200:
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            print("reloaded")
+            return requests.request("GET", url, headers=headers)
+    return response
+
+
+def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
+    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
+    headers = { "x-tyk-authorization": TYK_SECRET_KEY }
+    response = requests.request("GET", url, headers=headers)
+    if response.status_code == 200:
+        api_json = response.json()
+        new_providers = []
+        for p in api_json['openid_options']['providers']:
+            if issuer not in p['issuer']:
+                new_providers.append(p)
+            else:
+                if policy_id not in p['client_ids'].values():
+                    new_providers.append(p)
+
+        api_json['openid_options']['providers'] = new_providers
+        response = requests.request("PUT", url, headers=headers, json=api_json)
+        if response.status_code == 200:
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            print("reloaded")
+            return requests.request("GET", url, headers=headers)
+    return response
+
+
+def add_provider_to_opa(token, issuer, test_key=None):
+    headers = { 'X-Opa': OPA_SECRET }
+    url = f"{OPA_URL}/v1/data/keys"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()['result']
+        jwt = decode_verify_token(token, issuer)
+        response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
+        if response.status_code == 200:
+            response = requests.get(response.json()["jwks_uri"])
+            if response.status_code == 200:
+                new_provider = {"iss": jwt['iss'], "cert": response.text}
+                if test_key is not None:
+                    new_provider['test'] = test_key
+                data.append(new_provider)
+                response = requests.put(url, headers=headers, json=data)
+                return requests.get(url, headers=headers)
+    return response
+
+
+def remove_provider_from_opa(issuer, test_key=None):
+    headers = { 'X-Opa': OPA_SECRET }
+    url = f"{OPA_URL}/v1/data/keys"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()['result']
+        new_providers = []
+        for p in data:
+            if issuer in p['iss']:
+                if test_key is None:
+                    new_providers.append(p)
+                else:
+                    if "test" in p:
+                        if p['test'] != test_key:
+                            new_providers.append(p)
+                    else:
+                        new_providers.append(p)
+            else:
+                new_providers.append(p)
+
+        response = requests.put(url, headers=headers, json=new_providers)
+        return requests.get(url, headers=headers)
+    return response
+
+

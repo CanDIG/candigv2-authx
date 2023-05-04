@@ -7,13 +7,15 @@ CanDIGv2 has several separate layers that are involved in authentication and aut
 
 Keycloak acts as the identity provider for CanDIGv2. It uses the OpenID protocol to authenticate the user and issue a jwt in the form of a bearer token, identifying the user and their roles to other services. This token is then provided as an Authorization header to other CanDIGv2 services.
 
-`get_access_token` demonstrates the exchange required to get a token. 
+`get_access_token` demonstrates the exchange required to get a token.
 
 `get_auth_token` is a convenience method for plucking out the access token from a request's Authorization header.
 
 ## Authorization: Tyk
 
 Tyk acts as a proxy redirect service for the other services of CanDIGv2. When a call is made to CanDIGv2, it goes to Tyk first. Tyk validates the bearer token presented and makes sure that it is not expired and is issued by one of the authorized CanDIGv2 sites. If it is valid, it passes the call to the relevant service. When this fails, it returns a 401 "Key not authorised" error.
+
+`add_provider_to_tyk_api` and `remove_provider_from_tyk_api` add/remove new issuers to a particular API in Tyk.
 
 ## Authorization: Opa
 
@@ -23,9 +25,11 @@ Opa also confirms if a user is a site admin: `is_site_admin` checks the realm ro
 
 `OPA_SECRET` is the Opa service's predefined token that authorizes a service to use Opa. It's set as part of the initial setup of the candig-opa container.
 
+`add_provider_to_opa` and `remove_provider_from_opa` add/remove new issuers to Opa.
+
 ## Access to secrets: Vault
 
-Vault acts as the secret store for CanDIGv2. For now, the only store that we use is the key-value store `aws`, for storing and retrieving S3-style credentials. 
+Vault acts as the secret store for CanDIGv2. For now, the only store that we use is the key-value store `aws`, for storing and retrieving S3-style credentials.
 
 Services that require S3 access should have an environment variable `VAULT_S3_TOKEN` that is exchanged with Vault as a header `X-Vault-Token` for authorization to get the credentials. These exchanges are handled by the `get_aws_credential` and `store_aws_credential` methods.
 

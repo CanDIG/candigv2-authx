@@ -5,6 +5,8 @@ import authx.auth
 import tempfile
 from pathlib import Path
 import warnings
+import time
+
 
 CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
@@ -19,6 +21,8 @@ NOT_ADMIN_PASSWORD = os.getenv("CANDIG_NOT_ADMIN_PASSWORD", None)
 MINIO_URL = os.getenv("MINIO_URL", None)
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", None)
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", None)
+TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
+TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
 
 
 class FakeRequest:
@@ -42,6 +46,35 @@ class FakeRequest:
         self.path = f"/htsget/v1/variants/search"
         self.method = "GET"
 
+
+def test_add_opa_provider():
+    """
+    If OPA is present, try adding a new provider (just ourselves again). Otherwise, just assert True.
+    """
+    if KEYCLOAK_PUBLIC_URL is None:
+        warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
+        return
+
+    if OPA_URL is not None:
+        token = authx.auth.get_access_token(
+        keycloak_url=KEYCLOAK_PUBLIC_URL,
+        username=SITE_ADMIN_USER,
+        password=SITE_ADMIN_PASSWORD
+        )
+        test_key="testtest"
+        response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
+        print(response.json())
+        assert response.status_code == 200
+        found = False
+        for p in response.json()['result']:
+            if 'test' in p and p['test'] == test_key:
+                found = True
+        assert found
+
+    else:
+        warnings.warn(UserWarning("OPA_URL is not set"))
+
+
 def test_site_admin():
     """
     If OPA is present, check to see if SITE_ADMIN_USER is a site admin and that NOT_ADMIN_USER isn't. Otherwise, just assert True.
@@ -51,6 +84,32 @@ def test_site_admin():
         assert authx.auth.is_site_admin(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
         assert not authx.auth.is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
 
+    else:
+        warnings.warn(UserWarning("OPA_URL is not set"))
+
+
+def test_remove_opa_provider():
+    """
+    If OPA is present, remove the test provider we added before. Otherwise, just assert True.
+    """
+    if KEYCLOAK_PUBLIC_URL is None:
+        warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
+        return
+
+    if OPA_URL is not None:
+        token = authx.auth.get_access_token(
+        keycloak_url=KEYCLOAK_PUBLIC_URL,
+        username=SITE_ADMIN_USER,
+        password=SITE_ADMIN_PASSWORD
+        )
+        test_key="testtest"
+        response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key=test_key)
+        assert response.status_code == 200
+        found = False
+        for p in response.json()['result']:
+            if 'test' in p and p['test'] == test_key:
+                found = True
+        assert not found
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -70,12 +129,12 @@ def test_get_opa_datasets():
         # user1 has controlled4 in its datasets
         user_datasets = authx.auth.get_opa_datasets(FakeRequest(), admin_secret=OPA_SECRET)
         print(user_datasets)
-        assert "controlled4" in user_datasets
+        assert "SYNTHETIC-1" in user_datasets
 
         # user2 has controlled5 in its datasets
         user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
         print(user_datasets)
-        assert "controlled5" in user_datasets
+        assert "SYNTHETIC-2" in user_datasets
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -143,3 +202,39 @@ def test_get_public_s3_url():
     response = requests.get(url)
     print(response.text)
     assert "If you wish to use aspera" in response.text
+
+
+def test_tyk_api():
+    if KEYCLOAK_PUBLIC_URL is None:
+        warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
+        return
+
+    token = authx.auth.get_access_token(
+    keycloak_url=KEYCLOAK_PUBLIC_URL,
+    username=SITE_ADMIN_USER,
+    password=SITE_ADMIN_PASSWORD
+    )
+    policy_id="testtest"
+    response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id=policy_id)
+    assert response.status_code == 200
+    time.sleep(1) # tyk takes a second to refresh this after reloading
+    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/91"
+    headers = { "x-tyk-authorization": TYK_SECRET_KEY }
+    response = requests.request("GET", url, headers=headers)
+    print(response.json()['openid_options']['providers'])
+    found = False
+    for p in response.json()['openid_options']['providers']:
+        if policy_id in p['client_ids'].values():
+            found = True
+    assert found
+    response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id=policy_id)
+    time.sleep(1) # tyk takes a second to refresh this after reloading
+    assert response.status_code == 200
+    response = requests.request("GET", url, headers=headers)
+    print(response.json()['openid_options']['providers'])
+    found = False
+    for p in response.json()['openid_options']['providers']:
+        if policy_id in p['client_ids'].values():
+            found = True
+    assert not found
+
