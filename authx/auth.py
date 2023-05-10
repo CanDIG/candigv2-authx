@@ -3,6 +3,7 @@ import re
 import requests
 import jwt
 import base64
+import json
 
 
 ## Env vars for most auth methods:
@@ -362,12 +363,18 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
         api_json = response.json()
-        api_json['openid_options']['providers'].append(new_provider)
-        response = requests.request("PUT", url, headers=headers, json=api_json)
-        if response.status_code == 200:
-            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
-            print("reloaded")
-            return requests.request("GET", url, headers=headers)
+        # check to see if it's already here:
+        found = False
+        for s in api_json['openid_options']['providers']:
+            if json.dumps(s, sort_keys=True) == json.dumps(new_provider, sort_keys=True):
+                found = True
+        if not found:
+            api_json['openid_options']['providers'].append(new_provider)
+            response = requests.request("PUT", url, headers=headers, json=api_json)
+            if response.status_code == 200:
+                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+                print("reloaded")
+                return requests.request("GET", url, headers=headers)
     return response
 
 
@@ -401,16 +408,28 @@ def add_provider_to_opa(token, issuer, test_key=None):
     if response.status_code == 200:
         data = response.json()['result']
         jwt = decode_verify_token(token, issuer)
-        response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
-        if response.status_code == 200:
-            response = requests.get(response.json()["jwks_uri"])
-            if response.status_code == 200:
-                new_provider = {"iss": jwt['iss'], "cert": response.text}
+        jwks_response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
+        if jwks_response.status_code == 200:
+            jwks_response = requests.get(jwks_response.json()["jwks_uri"])
+            if jwks_response.status_code == 200:
+                new_provider = {"iss": jwt['iss'], "cert": jwks_response.text}
                 if test_key is not None:
                     new_provider['test'] = test_key
-                data.append(new_provider)
-                response = requests.put(url, headers=headers, json=data)
-                return requests.get(url, headers=headers)
+                # check to see if it's already here:
+                found = False
+                for s in data:
+                    if s['iss'] == new_provider['iss']:
+                        found = True
+                        if 'test' in new_provider:
+                            if 'test' not in s:
+                                found = False # not the same because s doesn't have a test key
+                            else:
+                                if s['test'] != new_provider['test']:
+                                    found = False # not the same because they have different test keys
+                if not found:
+                    data.append(new_provider)
+                    response = requests.put(url, headers=headers, json=data)
+                    return requests.get(url, headers=headers)
     return response
 
 

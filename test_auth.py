@@ -71,6 +71,11 @@ def test_add_opa_provider():
                 found = True
         assert found
 
+        # try adding the same thing again: the count should stay the same
+        count = len(response.json()['result'])
+        response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
+        assert response.status_code == 200
+        assert len(response.json()['result']) == count
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -227,6 +232,14 @@ def test_tyk_api():
         if policy_id in p['client_ids'].values():
             found = True
     assert found
+
+    # try adding the same thing again: the count should stay the same
+    count = len(response.json()['openid_options']['providers'])
+    response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id=policy_id)
+    assert response.status_code == 200
+    time.sleep(1) # tyk takes a second to refresh this after reloading
+    assert len(response.json()['openid_options']['providers']) == count
+
     response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id=policy_id)
     time.sleep(1) # tyk takes a second to refresh this after reloading
     assert response.status_code == 200
