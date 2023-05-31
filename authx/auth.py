@@ -24,7 +24,7 @@ SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
 SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 
 
-def get_auth_token(request):
+def get_auth_token(request: requests.Request):
     """
     Extracts token from request's Authorization header
     """
@@ -69,7 +69,7 @@ def get_site_admin_token():
     return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
 
-def get_readable_datasets(request, opa_url=OPA_URL, admin_secret=None):
+def get_readable_datasets(request: requests.Request, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
     Returns array of strings
@@ -98,8 +98,20 @@ def get_readable_datasets(request, opa_url=OPA_URL, admin_secret=None):
     allowed_datasets = response.json()["result"]
     return allowed_datasets
 
+def is_permissible(request: requests.Request, dataset):
+    # TODO: Use new OPA functions when implemented
+    if _is_site_admin(request):
+        return True
+    elif request.method == 'POST':
+        return False
+    else:
+        if dataset in get_readable_datasets(request, admin_secret=OPA_SECRET):
+            return True
+        return False
 
-def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
+# TODO: Remove once new OPA functions are implemented
+def _is_site_admin(request: requests.Request,
+                   opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
@@ -191,7 +203,8 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
-def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
+def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None,
+                         vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
     """
     Store aws credentials in Vault.
     Returns credential object, status code
@@ -239,7 +252,8 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     return response.json(), response.status_code
 
 
-def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None, secure=True, public=False):
+def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None,
+                     region=None, secure=True, public=False):
     """
     Return an object including a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
@@ -302,13 +316,15 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     }
 
 
-def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None, public=False):
+def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None,
+               public=False):
     """
     Get a signed URL for an object stored in an S3 bucket.
     Returns url, status_code
     """
     try:
-        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region, public=public)
+        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket,
+                                    access_key=access_key, secret_key=secret_key, region=region, public=public)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
@@ -372,7 +388,8 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             api_json['openid_options']['providers'].append(new_provider)
             response = requests.request("PUT", url, headers=headers, json=api_json)
             if response.status_code == 200:
-                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload",
+                                            params={"block": True}, headers=headers)
                 print("reloaded")
                 return requests.request("GET", url, headers=headers)
     return response
@@ -395,7 +412,8 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
         api_json['openid_options']['providers'] = new_providers
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
-            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True},
+                                        headers=headers)
             print("reloaded")
             return requests.request("GET", url, headers=headers)
     return response

@@ -86,8 +86,8 @@ def test_site_admin():
     """
     if OPA_URL is not None:
         print(f"{OPA_URL} {OPA_SECRET}")
-        assert authx.auth.is_site_admin(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
-        assert not authx.auth.is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+        assert authx.auth._is_site_admin(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+        assert not authx.auth._is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
 
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
@@ -126,23 +126,35 @@ def test_get_opa_datasets():
     if OPA_URL is not None:
         # try to get user1 datasets without OPA_SECRET:
         try:
-            user_datasets = authx.auth.get_opa_datasets(FakeRequest())
+            user_datasets = authx.auth.get_readable_datasets(FakeRequest())
         except requests.HTTPError as e:
-            # get_opa_datasets should raise an error
+            # get_readable_datasets should raise an error
             assert True
 
         # user1 has controlled4 in its datasets
-        user_datasets = authx.auth.get_opa_datasets(FakeRequest(), admin_secret=OPA_SECRET)
+        user_datasets = authx.auth.get_readable_datasets(FakeRequest(), admin_secret=OPA_SECRET)
         print(user_datasets)
         assert "SYNTHETIC-1" in user_datasets
 
         # user2 has controlled5 in its datasets
-        user_datasets = authx.auth.get_opa_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
+        user_datasets = authx.auth.get_readable_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
         print(user_datasets)
         assert "SYNTHETIC-2" in user_datasets
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
+def test_is_permissible():
+    admin_request = FakeRequest(site_admin=True)
+    admin_request.method = "POST"
+    assert authx.auth.is_permissible(admin_request, None)
+
+    user_post = FakeRequest(site_admin=False)
+    user_post.method = "POST"
+    assert not authx.auth.is_permissible(user_post, None)
+
+    user_get= FakeRequest(site_admin=False)
+    assert authx.auth.is_permissible(user_get, 'SYNTHETIC-1')
+    assert not authx.auth.is_permissible(user_get, 'SYNTHETIC-2')
 
 def test_put_aws_credential():
     """
