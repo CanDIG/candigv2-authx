@@ -69,7 +69,7 @@ def get_site_admin_token():
     return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
 
-def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
+def get_readable_datasets(request, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
     Returns array of strings
