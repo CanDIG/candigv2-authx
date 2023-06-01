@@ -98,12 +98,12 @@ def get_readable_datasets(request: requests.Request, opa_url=OPA_URL, admin_secr
     allowed_datasets = response.json()["result"]
     return allowed_datasets
 
-def is_permissible(request: requests.Request, dataset):
+def is_permissible(request: requests.Request, dataset=None):
     # TODO: Use new OPA functions when implemented
     if _is_site_admin(request):
         return True
-    elif request.method == 'POST':
-        return False
+    elif request.method == 'GET':
+        return True
     else:
         if dataset in get_readable_datasets(request, admin_secret=OPA_SECRET):
             return True
