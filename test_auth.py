@@ -146,15 +146,17 @@ def test_get_opa_datasets():
 def test_is_permissible():
     admin_request = FakeRequest(site_admin=True)
     admin_request.method = "POST"
-    assert authx.auth.is_permissible(admin_request, None)
+    assert authx.auth.is_permissible(admin_request)
 
     user_post = FakeRequest(site_admin=False)
     user_post.method = "POST"
-    assert not authx.auth.is_permissible(user_post, None)
+    user_post.data = [{"program_id": "SYNTHETIC-2"}]
+    assert not authx.auth.is_permissible(user_post)
+    user_post.data = [{"program_id": "SYNTHETIC-1"}]
+    assert authx.auth.is_permissible(user_post)
 
     user_get= FakeRequest(site_admin=False)
-    assert authx.auth.is_permissible(user_get, 'SYNTHETIC-1')
-    assert not authx.auth.is_permissible(user_get, 'SYNTHETIC-2')
+    assert authx.auth.is_permissible(user_get)
 
 def test_put_aws_credential():
     """
