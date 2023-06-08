@@ -105,8 +105,7 @@ def is_permissible(request: requests.Request):
     elif request.method == 'GET':
         return True
     else:
-        for entry in request.data:
-            if entry['program_id'] not in get_readable_datasets(request, admin_secret=OPA_SECRET): return False
+        if request.data['program_id'] not in get_readable_datasets(request, admin_secret=OPA_SECRET): return False
         return True
 
 # TODO: Remove once new OPA functions are implemented
