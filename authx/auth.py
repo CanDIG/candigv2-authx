@@ -81,7 +81,7 @@ def get_readable_datasets(request: requests.Request, opa_url=OPA_URL, admin_secr
         "input": {
             "token": token,
             "body": {
-                "path": request.path,
+                "path": request.url,
                 "method": request.method
             }
         }
