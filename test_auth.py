@@ -45,6 +45,13 @@ class FakeRequest:
         self.headers = {"Authorization": f"Bearer {token}"}
         self.path = f"/htsget/v1/variants/search"
         self.method = "GET"
+    def getRequest(self):
+        return {
+            "url": self.path,
+            "method": self.method,
+            "headers": self.headers,
+            "data": None
+        }
 
 
 def test_add_opa_provider():
@@ -86,8 +93,8 @@ def test_site_admin():
     """
     if OPA_URL is not None:
         print(f"{OPA_URL} {OPA_SECRET}")
-        assert authx.auth._is_site_admin(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
-        assert not authx.auth._is_site_admin(FakeRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+        assert authx.auth._is_site_admin(FakeRequest(site_admin=True).getRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
+        assert not authx.auth._is_site_admin(FakeRequest().getRequest(), opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY)
 
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
@@ -126,36 +133,36 @@ def test_get_opa_datasets():
     if OPA_URL is not None:
         # try to get user1 datasets without OPA_SECRET:
         try:
-            user_datasets = authx.auth.get_readable_datasets(FakeRequest())
+            user_datasets = authx.auth.get_readable_datasets(FakeRequest().getRequest())
         except requests.HTTPError as e:
             # get_readable_datasets should raise an error
             assert True
 
         # user1 has controlled4 in its datasets
-        user_datasets = authx.auth.get_readable_datasets(FakeRequest(), admin_secret=OPA_SECRET)
+        user_datasets = authx.auth.get_readable_datasets(FakeRequest().getRequest(), admin_secret=OPA_SECRET)
         print(user_datasets)
         assert "SYNTHETIC-1" in user_datasets
 
         # user2 has controlled5 in its datasets
-        user_datasets = authx.auth.get_readable_datasets(FakeRequest(site_admin=True), admin_secret=OPA_SECRET)
+        user_datasets = authx.auth.get_readable_datasets(FakeRequest(site_admin=True).getRequest(), admin_secret=OPA_SECRET)
         print(user_datasets)
         assert "SYNTHETIC-2" in user_datasets
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
 def test_is_permissible():
-    admin_request = FakeRequest(site_admin=True)
-    admin_request.method = "POST"
+    admin_request = FakeRequest(site_admin=True).getRequest()
+    admin_request["method"] = "POST"
     assert authx.auth.is_permissible(admin_request)
 
-    user_post = FakeRequest(site_admin=False)
-    user_post.method = "POST"
-    user_post.data = [{"program_id": "SYNTHETIC-2"}]
+    user_post = FakeRequest(site_admin=False).getRequest()
+    user_post["method"] = "POST"
+    user_post["data"] = {"program_id": "SYNTHETIC-2"}
     assert not authx.auth.is_permissible(user_post)
-    user_post.data = [{"program_id": "SYNTHETIC-1"}]
+    user_post["data"] = {"program_id": "SYNTHETIC-1"}
     assert authx.auth.is_permissible(user_post)
 
-    user_get= FakeRequest(site_admin=False)
+    user_get= FakeRequest(site_admin=False).getRequest()
     assert authx.auth.is_permissible(user_get)
 
 def test_put_aws_credential():
@@ -165,17 +172,17 @@ def test_put_aws_credential():
     if VAULT_URL is not None:
         endpoint = "http://test.endpoint"
         # store credential using vault_s3_token and not-site-admin token
-        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
+        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest().getRequest()),endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
         print(result, status_code)
         assert status_code == 200
 
         # try getting it with a non-site_admin token
-        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
+        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest().getRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
         print(result)
         assert "errors" in result
 
         # try getting it with a site_admin token
-        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest(site_admin=True)), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
+        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest(site_admin=True).getRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
         assert result['secret'] == 'secret'
         assert result['url'] == 'test.endpoint'
     else:
@@ -193,20 +200,20 @@ def test_get_s3_url():
     fp.seek(0)
     if MINIO_URL is not None:
         if VAULT_URL is not None:
-            result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=MINIO_URL, bucket="test", access=MINIO_ACCESS_KEY, secret=MINIO_SECRET_KEY, vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
+            result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest().getRequest()),endpoint=MINIO_URL, bucket="test", access=MINIO_ACCESS_KEY, secret=MINIO_SECRET_KEY, vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
             assert result['url'] in MINIO_URL
-            minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, bucket="test")
+            minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest().getRequest()), s3_endpoint=MINIO_URL, bucket="test")
             assert minio['endpoint'] == MINIO_URL
         else:
             warnings.warn(UserWarning("VAULT_URL is not set"))
-        minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, bucket="test")
+        minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest().getRequest()), s3_endpoint=MINIO_URL, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, bucket="test")
     else:
-        minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()))
+        minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest().getRequest()))
     filename = Path(fp.name).name
     minio['client'].put_object(minio['bucket'], filename, fp, Path(fp.name).stat().st_size)
     fp.close()
 
-    url, status_code = authx.auth.get_s3_url(FakeRequest(), object_id=filename, s3_endpoint=minio['endpoint'], bucket=minio['bucket'], access_key=minio['access'], secret_key=minio['secret'])
+    url, status_code = authx.auth.get_s3_url(FakeRequest().getRequest(), object_id=filename, s3_endpoint=minio['endpoint'], bucket=minio['bucket'], access_key=minio['access'], secret_key=minio['secret'])
     print(url)
     assert status_code == 200
 
@@ -217,7 +224,7 @@ def test_get_s3_url():
 
 
 def test_get_public_s3_url():
-    url, status_code = authx.auth.get_s3_url(FakeRequest(), public=True, bucket="1000genomes", s3_endpoint="http://s3.us-east-1.amazonaws.com", object_id="README.ebi_aspera_info", access_key=None, secret_key=None, region="us-east-1")
+    url, status_code = authx.auth.get_s3_url(FakeRequest().getRequest(), public=True, bucket="1000genomes", s3_endpoint="http://s3.us-east-1.amazonaws.com", object_id="README.ebi_aspera_info", access_key=None, secret_key=None, region="us-east-1")
     response = requests.get(url)
     print(response.text)
     assert "If you wish to use aspera" in response.text

@@ -23,12 +23,24 @@ CLIENT_SECRET = os.getenv("CANDIG_CLIENT_SECRET", None)
 SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
 SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 
+# A request JSON Object is formatted as follows:
+'''
+{
+    "url": "...",
+    "method": "...",
+    "headers": {
+                 "...": ...,
+                 ...
+    }
+    data: ...
+}
+'''
 
-def get_auth_token(request: requests.Request):
+def get_auth_token(request: dict):
     """
     Extracts token from request's Authorization header
     """
-    token = request.headers['Authorization']
+    token = request["headers"]['Authorization']
     if token is None:
         return None
     return token.split()[1]
@@ -81,8 +93,8 @@ def get_readable_datasets(request: requests.Request, opa_url=OPA_URL, admin_secr
         "input": {
             "token": token,
             "body": {
-                "path": request.url,
-                "method": request.method
+                "path": request["url"],
+                "method": request["method"]
             }
         }
     }
@@ -102,10 +114,10 @@ def is_permissible(request: requests.Request):
     # TODO: Use new OPA functions when implemented
     if _is_site_admin(request):
         return True
-    elif request.method == 'GET':
+    elif request["method"] == 'GET':
         return True
     else:
-        if request.data['program_id'] not in get_readable_datasets(request, admin_secret=OPA_SECRET): return False
+        if request["data"]['program_id'] not in get_readable_datasets(request, admin_secret=OPA_SECRET): return False
         return True
 
 # TODO: Remove once new OPA functions are implemented
@@ -118,7 +130,7 @@ def _is_site_admin(request: requests.Request,
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return True
-    if "Authorization" in request.headers:
+    if "Authorization" in request["headers"]:
         token = get_auth_token(request)
         response = requests.post(
             opa_url + "/v1/data/idp/" + site_admin_key,
