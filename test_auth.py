@@ -272,3 +272,12 @@ def test_tyk_api():
             found = True
     assert not found
 
+def test_refresh_token():
+    refresh_token = authx.auth.get_refresh_token(
+        keycloak_url=KEYCLOAK_PUBLIC_URL,
+        username=SITE_ADMIN_USER,
+        password=SITE_ADMIN_PASSWORD
+    )
+    token_from_refresh = authx.auth.get_access_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
+                                        refresh_token=refresh_token)
+    assert token_from_refresh

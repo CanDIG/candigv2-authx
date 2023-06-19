@@ -46,12 +46,13 @@ def get_auth_token(request: dict):
     return token.split()[1]
 
 
-def get_access_token(
+def _get_token(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
-    password=None
+    password=None,
+    refresh_token=None
     ):
     """
     Gets a token from the keycloak server.
@@ -60,21 +61,48 @@ def get_access_token(
         raise Exception("keycloak_url was not provided")
     if client_id is None or client_secret is None:
         raise Exception("client_id and client_secret required for token")
-    if username is None or password is None:
-        raise Exception("Username and password required for token")
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "password",
-        "username": username,
-        "password": password,
-        "scope": "openid"
-    }
+    if (username is None or password is None) and (not refresh_token):
+        raise Exception("Username and password or refresh token required for token")
+    if not refresh_token:
+        payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "password",
+            "username": username,
+            "password": password,
+            "scope": "openid"
+        }
+    else:
+        payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "scope": "openid"
+        }
     response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
-        return response.json()["access_token"]
+        return response.json()
     else:
         raise Exception(f"Check for environment variables: {response.text}")
+
+def get_access_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    username=None,
+    password=None,
+    refresh_token=None):
+    return _get_token(keycloak_url, client_id, client_secret, username, password,
+                      refresh_token)["access_token"]
+
+def get_refresh_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    username=None,
+    password=None,
+    refresh_token=None):
+    return _get_token(keycloak_url, client_id, client_secret, username, password,
+                      refresh_token)["refresh_token"]
 
 
 def get_site_admin_token():
@@ -147,7 +175,6 @@ def _is_site_admin(request: requests.Request,
         if 'result' in response.json():
             return True
     return False
-
 
 def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     """
