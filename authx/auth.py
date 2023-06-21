@@ -36,10 +36,11 @@ SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 }
 '''
 
-def get_auth_token(request: dict):
+def get_auth_token(request_data: str):
     """
     Extracts token from request's Authorization header
     """
+    request = json.loads(request_data)
     token = request["headers"]['Authorization']
     if token is None:
         return None
@@ -109,13 +110,13 @@ def get_site_admin_token():
     return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
 
-def get_readable_datasets(request: requests.Request, opa_url=OPA_URL, admin_secret=None):
+def get_readable_datasets(request_data: str, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
     Returns array of strings
     """
-
-    token = get_auth_token(request)
+    request = json.loads(request_data)
+    token = get_auth_token(request_data)
 
     body = {
         "input": {
@@ -138,28 +139,31 @@ def get_readable_datasets(request: requests.Request, opa_url=OPA_URL, admin_secr
     allowed_datasets = response.json()["result"]
     return allowed_datasets
 
-def is_permissible(request: requests.Request):
+def is_permissible(request_data: str):
     # TODO: Use new OPA functions when implemented
-    if _is_site_admin(request):
+    request = json.loads(request_data)
+    if _is_site_admin(request_data):
         return True
     elif request["method"] == 'GET':
         return True
     else:
-        if request["data"]['program_id'] not in get_readable_datasets(request, admin_secret=OPA_SECRET): return False
+        if request["data"]['program_id'] not in get_readable_datasets(request_data, admin_secret=OPA_SECRET): return False
         return True
 
 # TODO: Remove once new OPA functions are implemented
-def _is_site_admin(request: requests.Request,
+def _is_site_admin(request_data: str,
                    opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
     """
+    request = json.loads(request_data)
+
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return True
     if "Authorization" in request["headers"]:
-        token = get_auth_token(request)
+        token = get_auth_token(request_data)
         response = requests.post(
             opa_url + "/v1/data/idp/" + site_admin_key,
             headers={
@@ -354,14 +358,14 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     }
 
 
-def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None,
+def get_s3_url(request_data: str, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None,
                public=False):
     """
     Get a signed URL for an object stored in an S3 bucket.
     Returns url, status_code
     """
     try:
-        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket,
+        response = get_minio_client(token=get_auth_token(request_data), s3_endpoint=s3_endpoint, bucket=bucket,
                                     access_key=access_key, secret_key=secret_key, region=region, public=public)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)

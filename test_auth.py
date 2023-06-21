@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 import warnings
 import time
+import json
 
 
 CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("OPA_SITE_ADMIN_KEY", "site_admin")
@@ -45,13 +46,14 @@ class FakeRequest:
         self.headers = {"Authorization": f"Bearer {token}"}
         self.path = f"/htsget/v1/variants/search"
         self.method = "GET"
+        self.data = None
     def getRequest(self):
-        return {
+        return json.dumps({
             "url": self.path,
             "method": self.method,
             "headers": self.headers,
-            "data": None
-        }
+            "data": self.data
+        })
 
 
 def test_add_opa_provider():
@@ -151,19 +153,19 @@ def test_get_opa_datasets():
         warnings.warn(UserWarning("OPA_URL is not set"))
 
 def test_is_permissible():
-    admin_request = FakeRequest(site_admin=True).getRequest()
-    admin_request["method"] = "POST"
-    assert authx.auth.is_permissible(admin_request)
+    admin_request = FakeRequest(site_admin=True)
+    admin_request.method = "POST"
+    assert authx.auth.is_permissible(admin_request.getRequest())
 
-    user_post = FakeRequest(site_admin=False).getRequest()
-    user_post["method"] = "POST"
-    user_post["data"] = {"program_id": "SYNTHETIC-2"}
-    assert not authx.auth.is_permissible(user_post)
-    user_post["data"] = {"program_id": "SYNTHETIC-1"}
-    assert authx.auth.is_permissible(user_post)
+    user_post = FakeRequest(site_admin=False)
+    user_post.method = "POST"
+    user_post.data = {"program_id": "SYNTHETIC-2"}
+    assert not authx.auth.is_permissible(user_post.getRequest())
+    user_post.data = {"program_id": "SYNTHETIC-1"}
+    assert authx.auth.is_permissible(user_post.getRequest())
 
-    user_get= FakeRequest(site_admin=False).getRequest()
-    assert authx.auth.is_permissible(user_get)
+    user_get= FakeRequest(site_admin=False)
+    assert authx.auth.is_permissible(user_get.getRequest())
 
 def test_put_aws_credential():
     """
