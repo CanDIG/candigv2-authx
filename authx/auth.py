@@ -46,7 +46,7 @@ def get_auth_token(request=None, request_data: str=""):
                          "must be provided")
     if request:  # Deprecated request object of unknown type - will assume attributes
         request_object = {
-            "url": request.url,
+            "url": request.path,
             "method": request.method,
             "headers": request.headers,
             "data": request.data
@@ -141,7 +141,7 @@ def get_readable_datasets(request=None, opa_url=OPA_URL, admin_secret=None, requ
                          "must be provided")
     if request:  # Deprecated request object of unknown type - will assume attributes
         request_object = {
-            "url": request.url,
+            "url": request.path,
             "method": request.method,
             "headers": request.headers,
             "data": request.data
@@ -208,7 +208,7 @@ def _is_site_admin(request=None,
                          "must be provided")
     if request:  # Deprecated request object of unknown type - will assume attributes
         request_object = {
-            "url": request.url,
+            "url": request.path,
             "method": request.method,
             "headers": request.headers,
             "data": request.data
