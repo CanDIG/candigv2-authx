@@ -125,6 +125,11 @@ def get_refresh_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
 def get_site_admin_token():
     return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
+def get_opa_datasets(request=None, opa_url=OPA_URL, admin_secret=None, request_data: str=""):
+    warnings.warn("get_opa_datasets is being renamed to get_readable_datasets."
+                  "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                  DeprecationWarning)
+    return get_readable_datasets(request, opa_url, admin_secret, request_data)
 
 def get_readable_datasets(request=None, opa_url=OPA_URL, admin_secret=None, request_data: str=""):
     """
