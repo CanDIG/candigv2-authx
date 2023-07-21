@@ -174,7 +174,7 @@ def get_readable_datasets(request=None, opa_url=OPA_URL, admin_secret=None, requ
 def is_permissible(request_data: str):
     # TODO: Use new OPA functions when implemented
     request = json.loads(request_data)
-    if is_site_admin(request_data=request_data):
+    if _is_site_admin(request_data=request_data):
         return True
     elif request["method"] == 'GET':
         return True

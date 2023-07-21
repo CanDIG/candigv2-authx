@@ -153,17 +153,20 @@ def test_get_opa_datasets():
         warnings.warn(UserWarning("OPA_URL is not set"))
 
 def test_is_permissible():
-    admin_request = FakeRequest(site_admin=True)
-    admin_request.method = "POST"
-    print(admin_request.getRequest())
-    assert authx.auth.is_permissible(admin_request.getRequest())
+    if OPA_URL:
+        admin_request = FakeRequest(site_admin=True)
+        admin_request.method = "POST"
+        print(admin_request.getRequest())
+        assert authx.auth.is_permissible(admin_request.getRequest())
 
-    user_post = FakeRequest(site_admin=False)
-    user_post.method = "POST"
-    user_post.data = {"program_id": "SYNTHETIC-2"}
-    assert not authx.auth.is_permissible(user_post.getRequest())
-    user_post.data = {"program_id": "SYNTHETIC-1"}
-    assert authx.auth.is_permissible(user_post.getRequest())
+        user_post = FakeRequest(site_admin=False)
+        user_post.method = "POST"
+        user_post.data = {"program_id": "SYNTHETIC-2"}
+        assert not authx.auth.is_permissible(user_post.getRequest())
+        user_post.data = {"program_id": "SYNTHETIC-1"}
+        assert authx.auth.is_permissible(user_post.getRequest())
+    else:
+        warnings.warn(UserWarning("OPA_URL is not set"))
 
     user_get= FakeRequest(site_admin=False)
     assert authx.auth.is_permissible(user_get.getRequest())
@@ -276,11 +279,14 @@ def test_tyk_api():
     assert not found
 
 def test_refresh_token():
-    refresh_token = authx.auth.get_refresh_token(
-        keycloak_url=KEYCLOAK_PUBLIC_URL,
-        username=SITE_ADMIN_USER,
-        password=SITE_ADMIN_PASSWORD
-    )
-    token_from_refresh = authx.auth.get_access_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
-                                        refresh_token=refresh_token)
-    assert token_from_refresh
+    if KEYCLOAK_PUBLIC_URL is not None:
+        refresh_token = authx.auth.get_refresh_token(
+            keycloak_url=KEYCLOAK_PUBLIC_URL,
+            username=SITE_ADMIN_USER,
+            password=SITE_ADMIN_PASSWORD
+        )
+        token_from_refresh = authx.auth.get_access_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
+                                            refresh_token=refresh_token)
+        assert token_from_refresh
+    else:
+        warnings.warn(UserWarning("KEYCLOAK_URL is not set"))
