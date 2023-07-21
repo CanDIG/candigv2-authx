@@ -4,6 +4,7 @@ import requests
 import jwt
 import base64
 import json
+import warnings
 
 
 ## Env vars for most auth methods:
@@ -36,12 +37,27 @@ SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 }
 '''
 
-def get_auth_token(request_data: str):
+def get_auth_token(request=None, request_data: str=""):
     """
     Extracts token from request's Authorization header
     """
-    request = json.loads(request_data)
-    token = request["headers"]['Authorization']
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
+    if request:  # Deprecated request object of unknown type - will assume attributes
+        request_object = {
+            "url": request.url,
+            "method": request.method,
+            "headers": request.headers,
+            "data": request.data
+        }
+    else:
+        warnings.warn("WARNING: Using a request object for authx calls is being deprecated in candigv2-authx."
+              "Please use the request_data parameter with a JSON string instead."
+              "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                      DeprecationWarning)
+        request_object = json.loads(request_data)
+    token = request_object["headers"]['Authorization']
     if token is None:
         return None
     return token.split()[1]
@@ -110,20 +126,36 @@ def get_site_admin_token():
     return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
 
-def get_readable_datasets(request_data: str, opa_url=OPA_URL, admin_secret=None):
+def get_readable_datasets(request=None, opa_url=OPA_URL, admin_secret=None, request_data: str=""):
     """
     Get allowed dataset result from OPA
     Returns array of strings
     """
-    request = json.loads(request_data)
-    token = get_auth_token(request_data)
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
+    if request:  # Deprecated request object of unknown type - will assume attributes
+        request_object = {
+            "url": request.url,
+            "method": request.method,
+            "headers": request.headers,
+            "data": request.data
+        }
+        token = get_auth_token(request=request)
+    else:
+        warnings.warn("WARNING: Using a request object for authx calls is being deprecated in candigv2-authx."
+                      "Please use the request_data parameter with a JSON string instead."
+                      "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                      DeprecationWarning)
+        request_object = json.loads(request_data)
+        token = get_auth_token(request_data=request_data)
 
     body = {
         "input": {
             "token": token,
             "body": {
-                "path": request["url"],
-                "method": request["method"]
+                "path": request_object["url"],
+                "method": request_object["method"]
             }
         }
     }
@@ -142,28 +174,52 @@ def get_readable_datasets(request_data: str, opa_url=OPA_URL, admin_secret=None)
 def is_permissible(request_data: str):
     # TODO: Use new OPA functions when implemented
     request = json.loads(request_data)
-    if _is_site_admin(request_data):
+    if is_site_admin(request_data=request_data):
         return True
     elif request["method"] == 'GET':
         return True
     else:
-        if request["data"]['program_id'] not in get_readable_datasets(request_data, admin_secret=OPA_SECRET): return False
+        if request["data"]['program_id'] not in get_readable_datasets(request_data=request_data, admin_secret=OPA_SECRET): return False
         return True
 
 # TODO: Remove once new OPA functions are implemented
-def _is_site_admin(request_data: str,
-                   opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
+def is_site_admin(request=None,
+                   opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY, request_data: str=""):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
     """
-    request = json.loads(request_data)
+    warnings.warn("WARNING: is_site_admin will be deprecated in a future version of candigv2-authx. "
+          "Please switch to the is_permissible function instead. For more information, see "
+          "https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                  DeprecationWarning)
+    return _is_site_admin(request=request, request_data=request_data, opa_url=opa_url, admin_secret=admin_secret,
+                   site_admin_key=site_admin_key)
+
+def _is_site_admin(request=None,
+                   opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY, request_data: str=""):
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
+    if request:  # Deprecated request object of unknown type - will assume attributes
+        request_object = {
+            "url": request.url,
+            "method": request.method,
+            "headers": request.headers,
+            "data": request.data
+        }
+    else:
+        warnings.warn("WARNING: Using a request object for authx calls is being deprecated in candigv2-authx."
+                      "Please use the request_data parameter with a JSON string instead."
+                      "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                      DeprecationWarning)
+        request_object = json.loads(request_data)
 
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return True
-    if "Authorization" in request["headers"]:
-        token = get_auth_token(request_data)
+    if "Authorization" in request_object["headers"]:
+        token = get_auth_token(request=request, request_data=request_data)
         response = requests.post(
             opa_url + "/v1/data/idp/" + site_admin_key,
             headers={
@@ -172,10 +228,10 @@ def _is_site_admin(request_data: str,
             },
             json={
                 "input": {
-                        "token": token
-                    }
+                    "token": token
                 }
-            )
+            }
+        )
         if 'result' in response.json():
             return True
     return False
@@ -358,15 +414,24 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     }
 
 
-def get_s3_url(request_data: str, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None,
-               public=False):
+def get_s3_url(request=None, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None,
+               public=False, request_data: str=""):
     """
     Get a signed URL for an object stored in an S3 bucket.
     Returns url, status_code
     """
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
     try:
-        response = get_minio_client(token=get_auth_token(request_data), s3_endpoint=s3_endpoint, bucket=bucket,
-                                    access_key=access_key, secret_key=secret_key, region=region, public=public)
+        if request_data:
+            response = get_minio_client(token=get_auth_token(request_data=request_data), s3_endpoint=s3_endpoint,
+                                        bucket=bucket, access_key=access_key, secret_key=secret_key, region=region,
+                                        public=public)
+        else:
+            response = get_minio_client(token=get_auth_token(request=request), s3_endpoint=s3_endpoint,
+                                        bucket=bucket, access_key=access_key, secret_key=secret_key, region=region,
+                                        public=public)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
