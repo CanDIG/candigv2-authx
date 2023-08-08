@@ -15,7 +15,7 @@ VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
 TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
-TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
+TYK_PRIVATE_URL = os.getenv("TYK_PRIVATE_URL")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -358,7 +358,7 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             client_id_64: policy_id
         }
     }
-    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
+    url = f"{TYK_PRIVATE_URL}/tyk/apis/{api_id}"
     headers = { "x-tyk-authorization": TYK_SECRET_KEY }
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
@@ -372,14 +372,14 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             api_json['openid_options']['providers'].append(new_provider)
             response = requests.request("PUT", url, headers=headers, json=api_json)
             if response.status_code == 200:
-                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+                response = requests.request("GET", f"{TYK_PRIVATE_URL}/tyk/reload", params={"block": True}, headers=headers)
                 print("reloaded")
                 return requests.request("GET", url, headers=headers)
     return response
 
 
 def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
-    url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
+    url = f"{TYK_PRIVATE_URL}/tyk/apis/{api_id}"
     headers = { "x-tyk-authorization": TYK_SECRET_KEY }
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
@@ -395,7 +395,7 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
         api_json['openid_options']['providers'] = new_providers
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
-            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            response = requests.request("GET", f"{TYK_PRIVATE_URL}/tyk/reload", params={"block": True}, headers=headers)
             print("reloaded")
             return requests.request("GET", url, headers=headers)
     return response
