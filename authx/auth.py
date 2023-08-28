@@ -4,6 +4,7 @@ import requests
 import jwt
 import base64
 import json
+import warnings
 
 
 ## Env vars for most auth methods:
@@ -23,23 +24,52 @@ CLIENT_SECRET = os.getenv("CANDIG_CLIENT_SECRET", None)
 SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
 SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 
+# A request JSON Object is formatted as follows:
+'''
+{
+    "url": "...",
+    "method": "...",
+    "headers": {
+                 "...": ...,
+                 ...
+    }
+    data: ...
+}
+'''
 
-def get_auth_token(request):
+def get_auth_token(request=None, request_data: str=""):
     """
     Extracts token from request's Authorization header
     """
-    token = request.headers['Authorization']
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
+    if request:  # Deprecated request object of unknown type - will assume attributes
+        request_object = {
+            "url": request.path,
+            "method": request.method,
+            "headers": request.headers,
+            "data": request.data
+        }
+    else:
+        warnings.warn("WARNING: Using a request object for authx calls is being deprecated in candigv2-authx."
+              "Please use the request_data parameter with a JSON string instead."
+              "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                      DeprecationWarning)
+        request_object = json.loads(request_data)
+    token = request_object["headers"]['Authorization']
     if token is None:
         return None
     return token.split()[1]
 
 
-def get_access_token(
+def _get_token(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
-    password=None
+    password=None,
+    refresh_token=None
     ):
     """
     Gets a token from the keycloak server.
@@ -48,41 +78,89 @@ def get_access_token(
         raise Exception("keycloak_url was not provided")
     if client_id is None or client_secret is None:
         raise Exception("client_id and client_secret required for token")
-    if username is None or password is None:
-        raise Exception("Username and password required for token")
-    payload = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "password",
-        "username": username,
-        "password": password,
-        "scope": "openid"
-    }
+    if (username is None or password is None) and (not refresh_token):
+        raise Exception("Username and password or refresh token required for token")
+    if not refresh_token:
+        payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "password",
+            "username": username,
+            "password": password,
+            "scope": "openid"
+        }
+    else:
+        payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "scope": "openid"
+        }
     response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
-        return response.json()["access_token"]
+        return response.json()
     else:
         raise Exception(f"Check for environment variables: {response.text}")
+
+def get_access_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    username=None,
+    password=None,
+    refresh_token=None):
+    return _get_token(keycloak_url, client_id, client_secret, username, password,
+                      refresh_token)["access_token"]
+
+def get_refresh_token(keycloak_url=KEYCLOAK_PUBLIC_URL,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    username=None,
+    password=None,
+    refresh_token=None):
+    return _get_token(keycloak_url, client_id, client_secret, username, password,
+                      refresh_token)["refresh_token"]
 
 
 def get_site_admin_token():
     return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
 
+def get_opa_datasets(request=None, opa_url=OPA_URL, admin_secret=None, request_data: str=""):
+    warnings.warn("get_opa_datasets is being renamed to get_readable_datasets."
+                  "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                  DeprecationWarning)
+    return get_readable_datasets(request, opa_url, admin_secret, request_data)
 
-def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
+def get_readable_datasets(request=None, opa_url=OPA_URL, admin_secret=None, request_data: str=""):
     """
     Get allowed dataset result from OPA
     Returns array of strings
     """
-
-    token = get_auth_token(request)
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
+    if request:  # Deprecated request object of unknown type - will assume attributes
+        request_object = {
+            "url": request.path,
+            "method": request.method,
+            "headers": request.headers,
+            "data": request.data
+        }
+        token = get_auth_token(request=request)
+    else:
+        warnings.warn("WARNING: Using a request object for authx calls is being deprecated in candigv2-authx."
+                      "Please use the request_data parameter with a JSON string instead."
+                      "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                      DeprecationWarning)
+        request_object = json.loads(request_data)
+        token = get_auth_token(request_data=request_data)
 
     body = {
         "input": {
             "token": token,
             "body": {
-                "path": request.path,
-                "method": request.method
+                "path": request_object["url"],
+                "method": request_object["method"]
             }
         }
     }
@@ -98,17 +176,55 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     allowed_datasets = response.json()["result"]
     return allowed_datasets
 
+def is_permissible(request_data: str):
+    # TODO: Use new OPA functions when implemented
+    request = json.loads(request_data)
+    if _is_site_admin(request_data=request_data):
+        return True
+    elif request["method"] == 'GET':
+        return True
+    else:
+        if request["data"]['program_id'] not in get_readable_datasets(request_data=request_data, admin_secret=OPA_SECRET): return False
+        return True
 
-def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
+# TODO: Remove once new OPA functions are implemented
+def is_site_admin(request=None,
+                   opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY, request_data: str=""):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
     """
+    warnings.warn("WARNING: is_site_admin will be deprecated in a future version of candigv2-authx. "
+          "Please switch to the is_permissible function instead. For more information, see "
+          "https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                  DeprecationWarning)
+    return _is_site_admin(request=request, request_data=request_data, opa_url=opa_url, admin_secret=admin_secret,
+                   site_admin_key=site_admin_key)
+
+def _is_site_admin(request=None,
+                   opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY, request_data: str=""):
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
+    if request:  # Deprecated request object of unknown type - will assume attributes
+        request_object = {
+            "url": request.path,
+            "method": request.method,
+            "headers": request.headers,
+            "data": request.data
+        }
+    else:
+        warnings.warn("WARNING: Using a request object for authx calls is being deprecated in candigv2-authx."
+                      "Please use the request_data parameter with a JSON string instead."
+                      "See https://candig.atlassian.net/wiki/spaces/CA/pages/725057548/Authx+library+interface",
+                      DeprecationWarning)
+        request_object = json.loads(request_data)
+
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return True
-    if "Authorization" in request.headers:
-        token = get_auth_token(request)
+    if "Authorization" in request_object["headers"]:
+        token = get_auth_token(request=request, request_data=request_data)
         response = requests.post(
             opa_url + "/v1/data/idp/" + site_admin_key,
             headers={
@@ -117,14 +233,13 @@ def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CA
             },
             json={
                 "input": {
-                        "token": token
-                    }
+                    "token": token
                 }
-            )
+            }
+        )
         if 'result' in response.json():
             return True
     return False
-
 
 def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     """
@@ -191,7 +306,8 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
 
 
-def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
+def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None,
+                         vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
     """
     Store aws credentials in Vault.
     Returns credential object, status code
@@ -239,7 +355,8 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     return response.json(), response.status_code
 
 
-def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None, secure=True, public=False):
+def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None,
+                     region=None, secure=True, public=False):
     """
     Return an object including a minio client that either refers to the specified endpoint and bucket, or refers to the Minio playbox.
     """
@@ -302,13 +419,24 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     }
 
 
-def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None, public=False):
+def get_s3_url(request=None, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None,
+               public=False, request_data: str=""):
     """
     Get a signed URL for an object stored in an S3 bucket.
     Returns url, status_code
     """
+    if (not request_data) and (not request):
+        raise ValueError("A request object (being deprecated) or request JSON object (recommended) "
+                         "must be provided")
     try:
-        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region, public=public)
+        if request_data:
+            response = get_minio_client(token=get_auth_token(request_data=request_data), s3_endpoint=s3_endpoint,
+                                        bucket=bucket, access_key=access_key, secret_key=secret_key, region=region,
+                                        public=public)
+        else:
+            response = get_minio_client(token=get_auth_token(request=request), s3_endpoint=s3_endpoint,
+                                        bucket=bucket, access_key=access_key, secret_key=secret_key, region=region,
+                                        public=public)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
@@ -372,7 +500,8 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             api_json['openid_options']['providers'].append(new_provider)
             response = requests.request("PUT", url, headers=headers, json=api_json)
             if response.status_code == 200:
-                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload",
+                                            params={"block": True}, headers=headers)
                 print("reloaded")
                 return requests.request("GET", url, headers=headers)
     return response
@@ -395,7 +524,8 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
         api_json['openid_options']['providers'] = new_providers
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
-            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True},
+                                        headers=headers)
             print("reloaded")
             return requests.request("GET", url, headers=headers)
     return response
