@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+version = "v1.1.0"
+name = "candigv2_authx"
+dependencies = [
+    "requests>=2.25.1",
+    "minio>=7.1.7",
+    "pytest>=7.2.0",
+    "PyJWT>=2.6.0",
+    "cryptography>=3.4.0"
+    ]
+requires-python = ">= 3.10"
+description = "Common authentication and authorization methods for CanDIGv2"
+readme = "README.md"
+
+[project.urls]
+Repository = "https://github.com/CanDIG/candigv2-authx"
