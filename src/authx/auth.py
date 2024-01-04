@@ -86,12 +86,15 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
             }
         }
     }
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    if admin_secret is not None:
+        headers["X-Opa"] = f"{admin_secret}"
+
     response = requests.post(
         opa_url + "/v1/data/permissions/datasets",
-        headers={
-            "X-Opa": f"{admin_secret}",
-            "Authorization": f"Bearer {token}"
-        },
+        headers=headers,
         json=body
     )
     response.raise_for_status()
@@ -109,12 +112,14 @@ def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CA
         return True
     if "Authorization" in request.headers:
         token = get_auth_token(request)
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+        if admin_secret is not None:
+            headers["X-Opa"] = f"{admin_secret}"
         response = requests.post(
             opa_url + "/v1/data/idp/" + site_admin_key,
-            headers={
-                "X-Opa": f"{admin_secret}",
-                "Authorization": f"Bearer {token}"
-            },
+            headers=headers,
             json={
                 "input": {
                         "token": token
@@ -135,12 +140,14 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
         return None
     if "Authorization" in request.headers:
         token = get_auth_token(request)
+        headers = {
+            "Authorization": f"Bearer {token}"
+        }
+        if admin_secret is not None:
+            headers["X-Opa"] = f"{admin_secret}"
         response = requests.post(
             opa_url + "/v1/data/idp/email",
-            headers={
-                "X-Opa": f"{admin_secret}",
-                "Authorization": f"Bearer {token}"
-            },
+            headers=headers,
             json={
                 "input": {
                         "token": token
