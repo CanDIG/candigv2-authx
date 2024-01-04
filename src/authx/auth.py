@@ -494,3 +494,82 @@ def remove_provider_from_opa(issuer, test_key=None):
     return response
 
 
+def get_vault_token_for_service(service, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
+    # in CanDIGv2 docker stack, approle token should have been passed in
+    if approle_token is None:
+        with open("/run/secrets/vault-approle-token") as f:
+            approle_token = f.read().strip()
+    if approle_token is None:
+        print("no approle token found")
+        return None
+
+    # in CanDIGv2 docker stack, roleid should have been passed in
+    if role_id is None:
+        with open("/home/candig/roleid") as f:
+            role_id = f.read().strip()
+    if role_id is None:
+        print("no role_id found")
+        return None
+
+    # get the secret_id
+    if secret_id is None:
+        url = f"{vault_url}/v1/auth/approle/role/{service}/secret-id"
+        headers = { "X-Vault-Token": approle_token }
+        response = requests.post(url=url, headers=headers)
+        if response.status_code == 200:
+            secret_id = response.json()["data"]["secret_id"]
+        else:
+            print(f"secret_id: {response.text}")
+            return None
+
+        # swap the role_id and service_id for a token
+        data = {
+            "role_id": role_id,
+            "secret_id": secret_id
+        }
+        url = f"{vault_url}/v1/auth/approle/login"
+        response = requests.post(url, json=data)
+        if response.status_code == 200:
+            return response.json()["auth"]["client_token"]
+        else:
+            print(f"login: {response.text}")
+    return None
+
+
+def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    if token is None:
+        token = get_vault_token_for_service(service, vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+    if token is None:
+        return {"message": f"could not obtain token for {service}"}, 400
+    if key is None:
+        return {"message": "no key specified"}, 400
+
+    headers = {
+        "X-Vault-Token": token
+    }
+    url = f"{vault_url}/v1/{service}/{key}"
+    response = requests.post(url, headers=headers, json=value)
+    if response.status_code >= 200 and response.status_code < 300:
+        response = requests.get(url, headers=headers)
+        result = response.json()["data"]
+        return result, 200
+    return response.json(), response.status_code
+
+
+def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    if token is None:
+        token = get_vault_token_for_service(service, vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+    if token is None:
+        return {"message": f"could not obtain token for {service}"}, 400
+    if key is None:
+        return {"message": "no key specified"}, 400
+
+    headers = {
+        "X-Vault-Token": token
+    }
+    url = f"{vault_url}/v1/{service}/{key}"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        result = response.json()["data"]
+        return result, 200
+    return response.json(), response.status_code
