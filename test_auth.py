@@ -93,6 +93,16 @@ def test_site_admin():
         warnings.warn(UserWarning("OPA_URL is not set"))
 
 
+def test_user_email():
+        """
+        If OPA is present, check to see that the user's email is returned.
+        """
+        if OPA_URL is not None:
+            assert authx.auth.get_user_email(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET) == f"{SITE_ADMIN_USER}@test.ca"
+        else:
+            warnings.warn(UserWarning("OPA_URL is not set"))
+
+
 def test_remove_opa_provider():
     """
     If OPA is present, remove the test provider we added before. Otherwise, just assert True.

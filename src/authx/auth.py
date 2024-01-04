@@ -126,6 +126,32 @@ def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CA
     return False
 
 
+def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
+    """
+    Returns the email address associated with the user.
+    """
+    if opa_url is None:
+        print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
+        return None
+    if "Authorization" in request.headers:
+        token = get_auth_token(request)
+        response = requests.post(
+            opa_url + "/v1/data/idp/email",
+            headers={
+                "X-Opa": f"{admin_secret}",
+                "Authorization": f"Bearer {token}"
+            },
+            json={
+                "input": {
+                        "token": token
+                    }
+                }
+            )
+        if 'result' in response.json():
+            return response.json()['result']
+    return None
+
+
 def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     """
     Given a known vault_s3_token, exchange for a valid X-Vault-Token.

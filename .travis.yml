@@ -1,6 +1,7 @@
 language: python
+dist: focal   # required for Python >= 3.7
 python:
-  - 3.9
+  - 3.12
 
 services:
   - docker
