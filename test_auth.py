@@ -23,6 +23,7 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", None)
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", None)
 TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
 TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
+SERVICE_NAME = os.getenv("SERVICE_NAME")
 
 
 class FakeRequest:
@@ -261,3 +262,19 @@ def test_tyk_api():
             found = True
     assert not found
 
+def test_service_store_secret():
+    """
+    Test adding secrets to Vault
+    """
+    if VAULT_URL is not None:
+        # we can only test the service store of the service we're in:
+        if SERVICE_NAME is None:
+            warnings.warn(UserWarning("SERVICE_NAME is not set"))
+        else:
+            data = {"payload": "test"}
+            response, status_code = authx.auth.set_service_store_secret(SERVICE_NAME, key="testtest", value=data)
+            print(response)
+            assert status_code == 200
+            assert response["payload"] == "test"
+    else:
+        warnings.warn(UserWarning("VAULT_URL is not set"))
