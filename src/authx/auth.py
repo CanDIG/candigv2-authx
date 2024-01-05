@@ -443,37 +443,44 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
 
 
 def add_provider_to_opa(token, issuer, test_key=None):
+    new_provider = None
+    jwt = decode_verify_token(token, issuer)
+    jwks_response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
+    if jwks_response.status_code == 200:
+        jwks_response = requests.get(jwks_response.json()["jwks_uri"])
+        if jwks_response.status_code == 200:
+            new_provider = {"cert": jwks_response.text, "iss": jwt['iss']}
+            if test_key is not None:
+                new_provider['test'] = test_key
+    else:
+        raise CandigAuthError("couldn't get a response for openid config")
+    if new_provider is None:
+        raise CandigAuthError("couldn't get a jwks_uri")
+
     # get the existing values
     response, status_code = get_service_store_secret("opa", key="data")
 
     if status_code == 200:
-        data = response["keys"]
-        jwt = decode_verify_token(token, issuer)
-        jwks_response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
-        if jwks_response.status_code == 200:
-            jwks_response = requests.get(jwks_response.json()["jwks_uri"])
-            if jwks_response.status_code == 200:
-                new_provider = {"iss": jwt['iss'], "cert": jwks_response.text}
-                if test_key is not None:
-                    new_provider['test'] = test_key
-                # check to see if it's already here:
-                found = False
-                for s in data:
-                    if s['iss'] == new_provider['iss']:
-                        found = True
-                        if 'test' in new_provider:
-                            if 'test' not in s:
-                                found = False # not the same because s doesn't have a test key
-                            else:
-                                if s['test'] != new_provider['test']:
-                                    found = False # not the same because they have different test keys
-                if not found:
-                    data.append(new_provider)
-                    response, status_code = set_service_store_secret("opa", key="data", value=response)
-                else:
-                    print(f"{issuer} is already a provider")
+        # check to see if it's already here:
+        found = False
+        for s in response["keys"]:
+            if s['iss'] == new_provider['iss']:
+                found = True
+                if 'test' in new_provider:
+                    if 'test' not in s:
+                        found = False # not the same because s doesn't have a test key
+                    else:
+                        if s['test'] != new_provider['test']:
+                            found = False # not the same because they have different test keys
+        if not found:
+            response["keys"].append(new_provider)
+        else:
+            print(f"{issuer} is already a provider")
     else:
-        raise CandigAuthError("couldn't get data from opa store")
+        response = {
+            "keys": [new_provider]
+        }
+    response, status_code = set_service_store_secret("opa", key="data", value=json.dumps(response))
     return response["keys"]
 
 
