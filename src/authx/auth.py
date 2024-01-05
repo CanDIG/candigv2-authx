@@ -25,6 +25,10 @@ SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
 SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 
 
+class CandigAuthError(Exception):
+    pass
+
+
 def get_auth_token(request):
     """
     Extracts token from request's Authorization header
@@ -46,11 +50,11 @@ def get_access_token(
     Gets a token from the keycloak server.
     """
     if keycloak_url is None:
-        raise Exception("keycloak_url was not provided")
+        raise CandigAuthError("keycloak_url was not provided")
     if client_id is None or client_secret is None:
-        raise Exception("client_id and client_secret required for token")
+        raise CandigAuthError("client_id and client_secret required for token")
     if username is None or password is None:
-        raise Exception("Username and password required for token")
+        raise CandigAuthError("Username and password required for token")
     payload = {
         "client_id": client_id,
         "client_secret": client_secret,
@@ -63,7 +67,7 @@ def get_access_token(
     if response.status_code == 200:
         return response.json()["access_token"]
     else:
-        raise Exception(f"Check for environment variables: {response.text}")
+        raise CandigAuthError(f"Check for environment variables: {response.text}")
 
 
 def get_site_admin_token():
@@ -292,7 +296,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
                 return {"error": f"No Authorization token provided"}, 401
             response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
             if "error" in response:
-                raise Exception(response["error"])
+                raise CandigAuthError(response["error"])
             access_key = response["access"]
             secret_key = response["secret"]
             url = response["url"]
@@ -306,7 +310,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
             else:
                 url = endpoint
     if url is None:
-        raise Exception("No endpoint found")
+        raise CandigAuthError("No endpoint found")
     from minio import Minio
     if region is None:
         client = Minio(
@@ -366,7 +370,7 @@ def decode_verify_token(token, issuer):
     # the token is a valid CanDIG token from the new server: it contains its issuer and audience
     data = jwt.decode(token, options={"verify_signature": False})
     if data['iss'] != issuer:
-        raise Exception(f"The token's iss ({data['iss']}) does not match the issuer ({issuer})")
+        raise CandigAuthError(f"The token's iss ({data['iss']}) does not match the issuer ({issuer})")
 
     url = f"{data['iss']}/.well-known/openid-configuration"
     response = requests.request("GET", url)
@@ -499,21 +503,22 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
     """
     Get this service's vault token
     """
+    # if there is no SERVICE_NAME env var, something is wrong
+    if service is None:
+        raise CandigAuthError("no SERVICE_NAME specified")
     # in CanDIGv2 docker stack, approle token should have been passed in
     if approle_token is None:
         with open("/run/secrets/vault-approle-token") as f:
             approle_token = f.read().strip()
     if approle_token is None:
-        print("no approle token found")
-        return None
+        raise CandigAuthError("no approle token found")
 
     # in CanDIGv2 docker stack, roleid should have been passed in
     if role_id is None:
         with open("/home/candig/roleid") as f:
             role_id = f.read().strip()
     if role_id is None:
-        print("no role_id found")
-        return None
+        raise CandigAuthError("no role_id found")
 
     # get the secret_id
     if secret_id is None:
@@ -523,8 +528,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
         if response.status_code == 200:
             secret_id = response.json()["data"]["secret_id"]
         else:
-            print(f"secret_id: {response.text}")
-            return None
+            raise CandigAuthError(f"secret_id: {response.text}")
 
         # swap the role_id and service_id for a token
         data = {
@@ -536,17 +540,20 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
         if response.status_code == 200:
             return response.json()["auth"]["client_token"]
         else:
-            print(f"login: {response.text}")
+            raise CandigAuthError(f"login: {response.text}")
     return None
 
 
 def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
     if token is None:
-        token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        try:
+            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        except Exception as e:
+            return {"error": str(e)}, 500
     if token is None:
-        return {"message": f"could not obtain token for {service}"}, 400
+        return {"error": f"could not obtain token for {service}"}, 400
     if key is None:
-        return {"message": "no key specified"}, 400
+        return {"error": "no key specified"}, 400
 
     headers = {
         "X-Vault-Token": token
@@ -562,11 +569,14 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
 
 def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
     if token is None:
-        token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        try:
+            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        except Exception as e:
+            return {"error": str(e)}, 500
     if token is None:
-        return {"message": f"could not obtain token for {service}"}, 400
+        return {"error": f"could not obtain token for {service}"}, 400
     if key is None:
-        return {"message": "no key specified"}, 400
+        return {"error": "no key specified"}, 400
 
     headers = {
         "X-Vault-Token": token
