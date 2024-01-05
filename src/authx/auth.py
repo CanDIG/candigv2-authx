@@ -474,7 +474,7 @@ def add_provider_to_opa(token, issuer, test_key=None):
                     print(f"{issuer} is already a provider")
     else:
         raise CandigAuthError("couldn't get data from opa store")
-    return response
+    return response["keys"]
 
 
 def remove_provider_from_opa(issuer, test_key=None):
@@ -495,7 +495,7 @@ def remove_provider_from_opa(issuer, test_key=None):
         response, status_code = set_service_store_secret("opa", key="data", value={"keys": new_providers})
     else:
         raise CandigAuthError("couldn't get data from opa store")
-    return response
+    return response["keys"]
 
 
 def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
