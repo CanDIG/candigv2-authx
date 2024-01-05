@@ -296,7 +296,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
                 return {"error": f"No Authorization token provided"}, 401
             response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
             if "error" in response:
-                raise CandigAuthError(response["error"])
+                raise CandigAuthError(response)
             access_key = response["access"]
             secret_key = response["secret"]
             url = response["url"]
@@ -443,11 +443,11 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
 
 
 def add_provider_to_opa(token, issuer, test_key=None):
-    headers = { 'X-Opa': OPA_SECRET }
-    url = f"{OPA_URL}/v1/data/keys"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        data = response.json()['result']
+    # get the existing values
+    response, status_code = get_service_store_secret("opa", key="data")
+
+    if status_code == 200:
+        data = response["keys"]
         jwt = decode_verify_token(token, issuer)
         jwks_response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
         if jwks_response.status_code == 200:
@@ -469,23 +469,22 @@ def add_provider_to_opa(token, issuer, test_key=None):
                                     found = False # not the same because they have different test keys
                 if not found:
                     data.append(new_provider)
-                    response = requests.put(url, headers=headers, json=data)
-                    return requests.get(url, headers=headers)
+                    response, status_code = set_service_store_secret("opa", key="data", value=response)
+                else:
+                    print(f"{issuer} is already a provider")
+    else:
+        raise CandigAuthError("couldn't get data from opa store")
     return response
 
 
 def remove_provider_from_opa(issuer, test_key=None):
-    headers = { 'X-Opa': OPA_SECRET }
-    url = f"{OPA_URL}/v1/data/keys"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        data = response.json()['result']
+    response, status_code = get_service_store_secret("opa", key="data")
+    if status_code == 200:
+        data = response["keys"]
         new_providers = []
         for p in data:
             if issuer in p['iss']:
-                if test_key is None:
-                    new_providers.append(p)
-                else:
+                if test_key is not None:
                     if "test" in p:
                         if p['test'] != test_key:
                             new_providers.append(p)
@@ -493,9 +492,9 @@ def remove_provider_from_opa(issuer, test_key=None):
                         new_providers.append(p)
             else:
                 new_providers.append(p)
-
-        response = requests.put(url, headers=headers, json=new_providers)
-        return requests.get(url, headers=headers)
+        response, status_code = set_service_store_secret("opa", key="data", value={"keys": new_providers})
+    else:
+        raise CandigAuthError("couldn't get data from opa store")
     return response
 
 
