@@ -16,6 +16,7 @@ VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
 TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
 TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
+SERVICE_NAME = os.getenv("SERVICE_NAME")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -494,7 +495,10 @@ def remove_provider_from_opa(issuer, test_key=None):
     return response
 
 
-def get_vault_token_for_service(service, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
+def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
+    """
+    Get this service's vault token
+    """
     # in CanDIGv2 docker stack, approle token should have been passed in
     if approle_token is None:
         with open("/run/secrets/vault-approle-token") as f:
@@ -538,7 +542,7 @@ def get_vault_token_for_service(service, vault_url=VAULT_URL, approle_token=None
 
 def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
     if token is None:
-        token = get_vault_token_for_service(service, vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
     if token is None:
         return {"message": f"could not obtain token for {service}"}, 400
     if key is None:
@@ -558,7 +562,7 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
 
 def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
     if token is None:
-        token = get_vault_token_for_service(service, vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
     if token is None:
         return {"message": f"could not obtain token for {service}"}, 400
     if key is None:
