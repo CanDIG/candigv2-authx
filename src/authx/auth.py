@@ -514,8 +514,11 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
 
     # in CanDIGv2 docker stack, roleid should have been passed in
     if role_id is None:
-        with open("/home/candig/roleid") as f:
-            role_id = f.read().strip()
+        try:
+            with open("/home/candig/roleid") as f:
+                role_id = f.read().strip()
+        except Exception as e:
+            raise CandigAuthError(str(e))
     if role_id is None:
         raise CandigAuthError("no role_id found")
 
