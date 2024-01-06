@@ -65,7 +65,7 @@ def test_add_opa_provider():
         test_key="testtest"
         response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
         print(response)
-        assert response.status_code == 200
+        assert len(response) > 0
         found = False
         for p in response:
             if 'test' in p and p['test'] == test_key:
@@ -75,7 +75,6 @@ def test_add_opa_provider():
         # try adding the same thing again: the count should stay the same
         count = len(response)
         response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
-        assert response.status_code == 200
         assert len(response) == count
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
@@ -119,10 +118,13 @@ def test_remove_opa_provider():
         password=SITE_ADMIN_PASSWORD
         )
         test_key="testtest"
+
+        response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
+        count = len(response)
         response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key=test_key)
-        assert response.status_code == 200
+        assert len(response) < count
         found = False
-        for p in response.json()['result']:
+        for p in response:
             if 'test' in p and p['test'] == test_key:
                 found = True
         assert not found
