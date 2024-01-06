@@ -499,7 +499,7 @@ def remove_provider_from_opa(issuer, test_key=None):
                         new_providers.append(p)
             else:
                 new_providers.append(p)
-        response, status_code = set_service_store_secret("opa", key="data", value={"keys": new_providers})
+        response, status_code = set_service_store_secret("opa", key="data", value=json.dumps({"keys": new_providers}))
     else:
         raise CandigAuthError("couldn't get data from opa store")
     return response["keys"]
