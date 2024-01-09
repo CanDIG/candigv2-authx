@@ -568,6 +568,7 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
         "X-Vault-Token": token
     }
     url = f"{vault_url}/v1/{service}/{key}"
+    print(f"storing secret of type {str(type(value))}")
     response = requests.post(url, headers=headers, data=value)
     if response.status_code >= 200 and response.status_code < 300:
         return get_service_store_secret(service, key, token=token)
