@@ -570,9 +570,7 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
     url = f"{vault_url}/v1/{service}/{key}"
     response = requests.post(url, headers=headers, data=value)
     if response.status_code >= 200 and response.status_code < 300:
-        response = requests.get(url, headers=headers)
-        result = response.json()["data"]
-        return result, 200
+        return get_service_store_secret(service, key, token=token)
     return response.json(), response.status_code
 
 
