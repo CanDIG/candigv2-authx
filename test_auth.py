@@ -236,7 +236,7 @@ def test_tyk_api():
     policy_id="testtest"
     response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id=policy_id)
     assert response.status_code == 200
-    time.sleep(1) # tyk takes a second to refresh this after reloading
+    time.sleep(5) # tyk takes a second to refresh this after reloading
     url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/91"
     headers = { "x-tyk-authorization": TYK_SECRET_KEY }
     response = requests.request("GET", url, headers=headers)
@@ -251,11 +251,11 @@ def test_tyk_api():
     count = len(response.json()['openid_options']['providers'])
     response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id=policy_id)
     assert response.status_code == 200
-    time.sleep(1) # tyk takes a second to refresh this after reloading
+    time.sleep(5) # tyk takes a second to refresh this after reloading
     assert len(response.json()['openid_options']['providers']) == count
 
     response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id=policy_id)
-    time.sleep(1) # tyk takes a second to refresh this after reloading
+    time.sleep(5) # tyk takes a second to refresh this after reloading
     assert response.status_code == 200
     response = requests.request("GET", url, headers=headers)
     print(response.json()['openid_options']['providers'])
