@@ -23,6 +23,7 @@ MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", None)
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", None)
 TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
 TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
+SERVICE_NAME = os.getenv("SERVICE_NAME")
 
 
 class FakeRequest:
@@ -63,19 +64,18 @@ def test_add_opa_provider():
         )
         test_key="testtest"
         response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
-        print(response.json())
-        assert response.status_code == 200
+        print(response)
+        assert len(response) > 0
         found = False
-        for p in response.json()['result']:
+        for p in response:
             if 'test' in p and p['test'] == test_key:
                 found = True
         assert found
 
         # try adding the same thing again: the count should stay the same
-        count = len(response.json()['result'])
+        count = len(response)
         response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
-        assert response.status_code == 200
-        assert len(response.json()['result']) == count
+        assert len(response) == count
     else:
         warnings.warn(UserWarning("OPA_URL is not set"))
 
@@ -118,10 +118,13 @@ def test_remove_opa_provider():
         password=SITE_ADMIN_PASSWORD
         )
         test_key="testtest"
+
+        response = authx.auth.add_provider_to_opa(token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", test_key=test_key)
+        count = len(response)
         response = authx.auth.remove_provider_from_opa(KEYCLOAK_PUBLIC_URL, test_key=test_key)
-        assert response.status_code == 200
+        assert len(response) < count
         found = False
-        for p in response.json()['result']:
+        for p in response:
             if 'test' in p and p['test'] == test_key:
                 found = True
         assert not found
@@ -197,7 +200,8 @@ def test_get_s3_url():
             warnings.warn(UserWarning("VAULT_URL is not set"))
         minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, bucket="test")
     else:
-        minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()))
+        warnings.warn(UserWarning("MINIO_URL is not set"))
+        return
     filename = Path(fp.name).name
     minio['client'].put_object(minio['bucket'], filename, fp, Path(fp.name).stat().st_size)
     fp.close()
@@ -232,7 +236,7 @@ def test_tyk_api():
     policy_id="testtest"
     response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id=policy_id)
     assert response.status_code == 200
-    time.sleep(1) # tyk takes a second to refresh this after reloading
+    time.sleep(5) # tyk takes a second to refresh this after reloading
     url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/91"
     headers = { "x-tyk-authorization": TYK_SECRET_KEY }
     response = requests.request("GET", url, headers=headers)
@@ -247,11 +251,11 @@ def test_tyk_api():
     count = len(response.json()['openid_options']['providers'])
     response = authx.auth.add_provider_to_tyk_api("91", token, f"{KEYCLOAK_PUBLIC_URL}/auth/realms/candig", policy_id=policy_id)
     assert response.status_code == 200
-    time.sleep(1) # tyk takes a second to refresh this after reloading
+    time.sleep(5) # tyk takes a second to refresh this after reloading
     assert len(response.json()['openid_options']['providers']) == count
 
     response = authx.auth.remove_provider_from_tyk_api("91", KEYCLOAK_PUBLIC_URL, policy_id=policy_id)
-    time.sleep(1) # tyk takes a second to refresh this after reloading
+    time.sleep(5) # tyk takes a second to refresh this after reloading
     assert response.status_code == 200
     response = requests.request("GET", url, headers=headers)
     print(response.json()['openid_options']['providers'])
@@ -261,3 +265,19 @@ def test_tyk_api():
             found = True
     assert not found
 
+def test_service_store_secret():
+    """
+    Test adding secrets to Vault
+    """
+    if VAULT_URL is not None:
+        # we can only test the service store of the service we're in:
+        if SERVICE_NAME is None:
+            warnings.warn(UserWarning("SERVICE_NAME is not set"))
+        else:
+            data = {"payload": "test"}
+            response, status_code = authx.auth.set_service_store_secret(SERVICE_NAME, key="testtest", value=data)
+            print(response)
+            assert status_code == 200
+            assert response["payload"] == "test"
+    else:
+        warnings.warn(UserWarning("VAULT_URL is not set"))
