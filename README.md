@@ -42,7 +42,7 @@ Every service can be set up to have its own secret store in Vault. Diff your mod
         - source: vault-approle-token
           target: vault-approle-token
     environment:
-        - VAULT_URL="${VAULT_SERVICE_URL}"
+        - VAULT_URL="${VAULT_PRIVATE_URL}"
         - SERVICE_NAME="${SERVICE_NAME}"
 ```
 

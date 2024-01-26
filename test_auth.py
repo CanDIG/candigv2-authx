@@ -281,3 +281,18 @@ def test_service_store_secret():
             assert response["payload"] == "test"
     else:
         warnings.warn(UserWarning("VAULT_URL is not set"))
+
+def test_verify_service():
+    """
+    Test verifying the service
+    """
+    if VAULT_URL is not None:
+        # we can only test the service store of the service we're in:
+        if SERVICE_NAME is None:
+            warnings.warn(UserWarning("SERVICE_NAME is not set"))
+        else:
+            token = authx.auth.create_service_token()
+            assert authx.auth.verify_service_token(service=SERVICE_NAME, token=token)
+            assert not authx.auth.verify_service_token(service=SERVICE_NAME, token="foo")
+    else:
+        warnings.warn(UserWarning("VAULT_URL is not set"))

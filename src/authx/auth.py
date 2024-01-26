@@ -4,6 +4,7 @@ import requests
 import jwt
 import base64
 import json
+import uuid
 
 
 ## Env vars for most auth methods:
@@ -598,3 +599,35 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
         result = response.json()["data"]
         return result, 200
     return response.text, response.status_code
+
+def create_service_token(vault_url=VAULT_URL):
+    if SERVICE_NAME is None:
+        raise CandigAuthError("No SERVICE_NAME specified. Was this called from a CanDIG docker container?")
+    # create the random token:
+    token = uuid.uuid1()
+    try:
+        response, status_code = set_service_store_secret(SERVICE_NAME, key=f"token/{token}", value={"token": token})
+        if status_code != 200:
+            raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {response}")
+    except Exception as e:
+        raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {str(e)}")
+    return str(token)
+
+def verify_service_token(service=None, token=None):
+    if service is None:
+        return False
+    if token is None:
+        return False
+    body = {
+        "input": {
+            "service": service,
+            "token": token
+        }
+    }
+
+    response = requests.post(
+        OPA_URL + "/v1/data/service/verified",
+        json=body
+    )
+
+    return response.status_code == 200 and "result" in response.json() and response.json()["result"]
