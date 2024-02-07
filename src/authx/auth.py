@@ -218,7 +218,6 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     response = requests.get(
         f"{vault_url}/v1/aws/{endpoint}-{bucket}",
         headers={
-            "Authorization": f"Bearer {token}",
             "X-Vault-Token": vault_token
             }
     )
