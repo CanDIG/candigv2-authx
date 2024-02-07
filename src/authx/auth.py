@@ -236,8 +236,6 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     """
     if endpoint is None or bucket is None or access is None or secret is None:
         return {"error": "S3 credentials not provided to store in Vault"}, 400
-    if token is None:
-        return {"error": "Bearer token not provided"}, 400
     # eat any http stuff from endpoint:
     secure = True
     endpoint_parse = re.match(r"(https*):\/\/(.+)?", endpoint)
