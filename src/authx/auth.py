@@ -348,7 +348,10 @@ def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_ke
     Returns url, status_code
     """
     try:
-        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region, public=public)
+        token = None
+        if request is not None:
+            token = get_auth_token(request)
+        response = get_minio_client(token=token, s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region, public=public)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
