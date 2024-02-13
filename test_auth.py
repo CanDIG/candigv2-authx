@@ -206,7 +206,7 @@ def test_get_s3_url():
     minio['client'].put_object(minio['bucket'], filename, fp, Path(fp.name).stat().st_size)
     fp.close()
 
-    url, status_code = authx.auth.get_s3_url(FakeRequest(), object_id=filename, s3_endpoint=minio['endpoint'], bucket=minio['bucket'], access_key=minio['access'], secret_key=minio['secret'])
+    url, status_code = authx.auth.get_s3_url(object_id=filename, s3_endpoint=minio['endpoint'], bucket=minio['bucket'], access_key=minio['access'], secret_key=minio['secret'])
     print(url)
     assert status_code == 200
 
@@ -217,7 +217,7 @@ def test_get_s3_url():
 
 
 def test_get_public_s3_url():
-    url, status_code = authx.auth.get_s3_url(FakeRequest(), public=True, bucket="1000genomes", s3_endpoint="http://s3.us-east-1.amazonaws.com", object_id="README.ebi_aspera_info", access_key=None, secret_key=None, region="us-east-1")
+    url, status_code = authx.auth.get_s3_url(public=True, bucket="1000genomes", s3_endpoint="http://s3.us-east-1.amazonaws.com", object_id="README.ebi_aspera_info", access_key=None, secret_key=None, region="us-east-1")
     response = requests.get(url)
     print(response.text)
     assert "If you wish to use aspera" in response.text
