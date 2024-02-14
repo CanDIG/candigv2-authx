@@ -218,7 +218,6 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     response = requests.get(
         f"{vault_url}/v1/aws/{endpoint}-{bucket}",
         headers={
-            "Authorization": f"Bearer {token}",
             "X-Vault-Token": vault_token
             }
     )
@@ -237,8 +236,6 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
     """
     if endpoint is None or bucket is None or access is None or secret is None:
         return {"error": "S3 credentials not provided to store in Vault"}, 400
-    if token is None:
-        return {"error": "Bearer token not provided"}, 400
     # eat any http stuff from endpoint:
     secure = True
     endpoint_parse = re.match(r"(https*):\/\/(.+)?", endpoint)
@@ -293,8 +290,6 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     else:
         endpoint = s3_endpoint
         if access_key is None and not public:
-            if token is None:
-                return {"error": f"No Authorization token provided"}, 401
             response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
             if "error" in response:
                 raise CandigAuthError(response)
@@ -344,13 +339,13 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     }
 
 
-def get_s3_url(request, s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None, public=False):
+def get_s3_url(s3_endpoint=None, bucket=None, object_id=None, access_key=None, secret_key=None, region=None, public=False):
     """
     Get a signed URL for an object stored in an S3 bucket.
     Returns url, status_code
     """
     try:
-        response = get_minio_client(token=get_auth_token(request), s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region, public=public)
+        response = get_minio_client(token=None, s3_endpoint=s3_endpoint, bucket=bucket, access_key=access_key, secret_key=secret_key, region=region, public=public)
         client = response["client"]
         result = client.stat_object(bucket_name=response["bucket"], object_name=object_id)
         url = client.presigned_get_object(bucket_name=response["bucket"], object_name=object_id)
