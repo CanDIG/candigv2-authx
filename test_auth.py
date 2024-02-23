@@ -296,3 +296,13 @@ def test_verify_service():
             assert not authx.auth.verify_service_token(service=SERVICE_NAME, token="foo")
     else:
         warnings.warn(UserWarning("VAULT_URL is not set"))
+
+
+def test_parse_aws_url():
+    result = authx.auth.parse_aws_url("https://ecs.uhn.ca/dhdp-ecsresgen/something/something")
+    assert "endpoint" in result
+    assert result["endpoint"] == "https://ecs.uhn.ca"
+    try:
+        result = authx.auth.parse_aws_url("s3://dhdp-ecsresgen/something/something")
+    except Exception as e:
+        assert "needs to specify an http endpoint URL" in str(e)

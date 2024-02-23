@@ -194,6 +194,26 @@ def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     return vault_s3_token, 200
 
 
+def parse_aws_url(url):
+    """
+    Parse a url into s3 components
+    """
+    s3_url_parse = re.match(r"((https*|s3):\/\/(.+?))\/(.+)", url)
+    if s3_url_parse is not None:
+        if s3_url_parse.group(2) == "s3":
+            raise CandigAuthError(f"URI {url} needs to specify an http endpoint URL. If using AWS S3, find your S3 endpoint url at https://docs.aws.amazon.com/general/latest/gr/rande.html")
+        endpoint = s3_url_parse.group(1)
+        bucket_parse = re.match(r"(.+?)\/(.+)", s3_url_parse.group(4))
+        if bucket_parse is not None:
+            return {
+                "endpoint": endpoint,
+                "bucket": bucket_parse.group(1),
+                "object": bucket_parse.group(2)
+            }
+        raise CandigAuthError(f"s3-style URI {url} does not contain a bucket")
+    raise CandigAuthError(f"URI {url} cannot be parsed as an s3-style URI")
+
+
 def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
     """
     Look up S3 credentials in Vault.
