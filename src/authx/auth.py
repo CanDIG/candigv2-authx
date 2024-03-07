@@ -8,7 +8,6 @@ import uuid
 
 
 ## Env vars for most auth methods:
-CANDIG_OPA_SITE_ADMIN_KEY = os.getenv("OPA_SITE_ADMIN_KEY", "site_admin")
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_URL', None)
 OPA_SECRET = os.getenv('OPA_SECRET', None)
@@ -108,7 +107,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     return allowed_datasets
 
 
-def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CANDIG_OPA_SITE_ADMIN_KEY):
+def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_admin_key=None):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
@@ -116,24 +115,24 @@ def is_site_admin(request, opa_url=OPA_URL, admin_secret=None, site_admin_key=CA
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return True
-    if "Authorization" in request.headers:
+    if request is not None and "Authorization" in request.headers:
         token = get_auth_token(request)
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-        if admin_secret is not None:
-            headers["X-Opa"] = f"{admin_secret}"
-        response = requests.post(
-            opa_url + "/v1/data/idp/" + site_admin_key,
-            headers=headers,
-            json={
-                "input": {
-                        "token": token
-                    }
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    if admin_secret is not None:
+        headers["X-Opa"] = f"{admin_secret}"
+    response = requests.post(
+        opa_url + "/v1/data/idp/site_admin",
+        headers=headers,
+        json={
+            "input": {
+                    "token": token
                 }
-            )
-        if 'result' in response.json():
-            return True
+            }
+        )
+    if 'result' in response.json():
+        return True
     return False
 
 
