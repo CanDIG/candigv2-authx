@@ -594,6 +594,26 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
         return result, 200
     return response.text, response.status_code
 
+
+def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    if token is None:
+        try:
+            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        except Exception as e:
+            return {"error": str(e)}, 500
+    if token is None:
+        return {"error": f"could not obtain token for {service}"}, 400
+    if key is None:
+        return {"error": "no key specified"}, 400
+
+    headers = {
+        "X-Vault-Token": token
+    }
+    url = f"{vault_url}/v1/{service}/{key}"
+    response = requests.delete(url, headers=headers)
+    return response.status_code
+
+
 def create_service_token(vault_url=VAULT_URL):
     if SERVICE_NAME is None:
         raise CandigAuthError("No SERVICE_NAME specified. Was this called from a CanDIG docker container?")
@@ -606,6 +626,7 @@ def create_service_token(vault_url=VAULT_URL):
     except Exception as e:
         raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {str(e)}")
     return str(token)
+
 
 def verify_service_token(service=None, token=None):
     if service is None:
