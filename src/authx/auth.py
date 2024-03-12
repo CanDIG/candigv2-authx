@@ -533,7 +533,7 @@ def remove_provider_from_opa(issuer, test_key=None):
 
 def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
     """
-    Get this service's vault token
+    Get this service's vault token. Should only be called from inside a container.
     """
     # if there is no SERVICE_NAME env var, something is wrong
     if service is None:
@@ -580,6 +580,9 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
 
 
 def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    """
+    Set a Vault service store secret. Should only be called from inside a container.
+    """
     if token is None:
         try:
             token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
@@ -605,6 +608,9 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
 
 
 def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    """
+    Get a Vault service store secret. Should only be called from inside a container.
+    """
     if token is None:
         try:
             token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
@@ -627,6 +633,9 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
 
 
 def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    """
+    Delete a Vault service store secret. Should only be called from inside a container.
+    """
     if token is None:
         try:
             token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
@@ -646,6 +655,10 @@ def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=
 
 
 def create_service_token(vault_url=VAULT_URL):
+    """
+    Create a token that can be used to verify this service. Should only be called from inside a container.
+    """
+
     if SERVICE_NAME is None:
         raise CandigAuthError("No SERVICE_NAME specified. Was this called from a CanDIG docker container?")
     # create the random token:
@@ -660,6 +673,9 @@ def create_service_token(vault_url=VAULT_URL):
 
 
 def verify_service_token(service=None, token=None):
+    """
+    Verify that a token comes from a particular service. Should only be called from inside a container.
+    """
     if service is None:
         return False
     if token is None:
