@@ -530,6 +530,70 @@ def remove_provider_from_opa(issuer, test_key=None):
         raise CandigAuthError("couldn't get data from opa store")
     return response["keys"]
 
+def get_program_in_opa(program_id):
+    """
+    Returns a ProgramAuthorization for the program_id
+    Authorized only if the service requesting it is allowed to see Opa's vault secrets.
+    """
+    response, status_code = get_service_store_secret("opa", key=f"programs/{program_id}")
+    if status_code < 300:
+        return response, status_code
+    return {"message": f"{program_id} not found"}, status_code
+
+
+def add_program_to_opa(program_auth):
+    """
+    Creates or updates a ProgramAuthorization in Opa for the program_id.
+    Authorized only if the requesting service is allowed to write Opa's vault secrets.
+    """
+    program_id = program_auth["program_id"]
+    response, status_code = get_program_in_opa(program_id)
+    if status_code < 300 or status_code == 404:
+        # create or update the program itself
+        if "date_created" not in program_auth:
+            from datetime import datetime
+            program_auth["date_created"] = datetime.today().strftime('%Y-%m-%d')
+        response, status_code = set_service_store_secret("opa", key=f"programs/{program_id}", value=json.dumps({program_id: program_auth}))
+        if status_code < 300:
+            # update the values for the program list
+            response2, status_code = get_service_store_secret("opa", key="programs")
+
+            if status_code == 200:
+                # check to see if it's already here:
+                if program_id not in response2['programs']:
+                    response2['programs'].append(program_id)
+            else:
+                response2 = {'programs': [program_id]}
+            response2, status_code = set_service_store_secret("opa", key="programs", value=json.dumps(response2))
+            return response, status_code
+
+    return {"message": f"{program_id} not added"}, status_code
+
+
+def remove_program_from_opa(program_id):
+    """
+    Removes the ProgramAuthorization in Opa for the program_id.
+    Authorized only if the requesting service is allowed to write Opa's vault secrets.
+    """
+    response, status_code = get_program_in_opa(program_id)
+    if status_code == 404:
+        return response, status_code
+    if status_code < 300:
+        # create or update the program itself
+        response = delete_service_store_secret("opa", key=f"programs/{program_id}")
+
+        # update the values for the program list
+        response, status_code = get_service_store_secret("opa", key="programs")
+
+        if status_code == 200:
+            # check to see if it's here:
+            if program_id in response['programs']:
+                response['programs'].remove(program_id)
+                response, status_code = set_service_store_secret("opa", key="programs", value=json.dumps(response))
+
+        return {"success": f"{program_id} removed"}, status_code
+    return {"message": f"{program_id} not removed"}, status_code
+
 
 def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
     """
