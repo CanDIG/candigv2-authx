@@ -136,6 +136,37 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_
     return False
 
 
+def is_action_allowed_for_program(token, method=None, path=None, program=None, opa_url=OPA_URL, admin_secret=None):
+    """
+    Is the user allowed to perform this action on this program?
+    """
+    if opa_url is None:
+        print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
+        return True
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    if admin_secret is not None:
+        headers["X-Opa"] = f"{admin_secret}"
+    response = requests.post(
+        opa_url + "/v1/data/permissions/allowed",
+        headers=headers,
+        json={
+            "input": {
+                    "token": token,
+                    "body": {
+                        "method": method,
+                        "path": path,
+                        "program": program
+                    }
+                }
+            }
+        )
+    if 'result' in response.json():
+        return True
+    return False
+
+
 def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
     """
     Returns the email address associated with the user.
