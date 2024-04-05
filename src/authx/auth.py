@@ -44,7 +44,8 @@ def get_access_token(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
-    password=None
+    password=None,
+    refresh_token=None
     ):
     """
     Gets a token from the keycloak server.
@@ -53,21 +54,29 @@ def get_access_token(
         raise CandigAuthError("keycloak_url was not provided")
     if client_id is None or client_secret is None:
         raise CandigAuthError("client_id and client_secret required for token")
-    if username is None or password is None:
-        raise CandigAuthError("Username and password required for token")
+
     payload = {
         "client_id": client_id,
         "client_secret": client_secret,
-        "grant_type": "password",
-        "username": username,
-        "password": password,
         "scope": "openid"
     }
+
+    if refresh_token is not None:
+        payload["refresh_token"] = refresh_token
+        payload["grant_type"] = "refresh_token"
+    else:
+        if username is None or password is None:
+            raise CandigAuthError("Username and password required for token")
+        else:
+            payload["grant_type"] = "password"
+            payload["username"] = username
+            payload["password"] = password
+
     response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()["access_token"]
     else:
-        raise CandigAuthError(f"Check for environment variables: {response.text}")
+        raise CandigAuthError(f"Error obtaining access token: {response.text}")
 
 
 def get_site_admin_token():
