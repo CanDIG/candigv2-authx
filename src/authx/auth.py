@@ -75,6 +75,8 @@ def get_oauth_response(
     response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()
+    elif response.status_code == 400:
+        return {"error": response.text}
     else:
         raise CandigAuthError(f"Error obtaining access token: {response.text}")
 
