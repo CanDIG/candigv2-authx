@@ -39,7 +39,7 @@ def get_auth_token(request):
     return token.split()[1]
 
 
-def get_access_token(
+def get_oauth_response(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
@@ -74,13 +74,40 @@ def get_access_token(
 
     response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
-        return response.json()["access_token"]
+        return response.json()
     else:
         raise CandigAuthError(f"Error obtaining access token: {response.text}")
 
 
-def get_site_admin_token():
-    return get_access_token(username=SITE_ADMIN_USER, password=SITE_ADMIN_PASSWORD)
+def get_access_token(
+    keycloak_url=KEYCLOAK_PUBLIC_URL,
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    username=None,
+    password=None,
+    refresh_token=None
+    ):
+
+    result = get_oauth_response(
+        keycloak_url=keycloak_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        username=username,
+        password=password,
+        refresh_token=refresh_token
+        )
+    return result["access_token"]
+
+
+def get_site_admin_token(refresh_token=None):
+    username = SITE_ADMIN_USER
+    password = SITE_ADMIN_PASSWORD
+    if username is None:
+        username = input("Enter username: ")
+    if password is None:
+        password = input("Enter password: ")
+
+    return get_access_token(username=username, password=password, refresh_token=refresh_token)
 
 
 def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
