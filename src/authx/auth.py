@@ -21,8 +21,6 @@ SERVICE_NAME = os.getenv("SERVICE_NAME")
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
 CLIENT_SECRET = os.getenv("CANDIG_CLIENT_SECRET", None)
-SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
-SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 
 
 class CandigAuthError(Exception):
@@ -102,8 +100,8 @@ def get_access_token(
 
 
 def get_site_admin_token(refresh_token=None):
-    username = SITE_ADMIN_USER
-    password = SITE_ADMIN_PASSWORD
+    username = os.getenv("CANDIG_SITE_ADMIN_USER", None)
+    password = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
     if username is None:
         username = input("Enter username: ")
     if password is None:
@@ -424,10 +422,7 @@ def get_s3_url(s3_endpoint=None, bucket=None, object_id=None, access_key=None, s
 
 if __name__ == "__main__":
     print(get_access_token(
-        keycloak_url=KEYCLOAK_PUBLIC_URL,
-        username=SITE_ADMIN_USER,
-        password=SITE_ADMIN_PASSWORD
-        ))
+        keycloak_url=KEYCLOAK_PUBLIC_URL))
 
 
 def decode_verify_token(token, issuer):
