@@ -508,7 +508,7 @@ def add_provider_to_opa(token, issuer, test_key=None):
     if jwks_response.status_code == 200:
         jwks_response = requests.get(jwks_response.json()["jwks_uri"])
         if jwks_response.status_code == 200:
-            new_provider = {"cert": jwks_response.text, "iss": jwt['iss']}
+            new_provider = {"cert": jwks_response.text, "iss": jwt['iss'], "aud": jwt['aud']}
             if test_key is not None:
                 new_provider['test'] = test_key
     else:
