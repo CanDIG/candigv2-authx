@@ -17,6 +17,7 @@ TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
 TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
 TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
 SERVICE_NAME = os.getenv("SERVICE_NAME")
+CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -218,7 +219,7 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
         if admin_secret is not None:
             headers["X-Opa"] = f"{admin_secret}"
         response = requests.post(
-            opa_url + "/v1/data/idp/email",
+            opa_url + f"/v1/data/idp/{CANDIG_USER_KEY}",
             headers=headers,
             json={
                 "input": {
