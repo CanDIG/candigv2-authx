@@ -111,7 +111,7 @@ def get_site_admin_token(refresh_token=None):
     return get_access_token(username=username, password=password, refresh_token=refresh_token)
 
 
-def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
+def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Get allowed dataset result from OPA
     Returns array of strings
@@ -144,7 +144,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     return allowed_datasets
 
 
-def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_admin_key=None):
+def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=None):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
@@ -173,7 +173,7 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_
     return False
 
 
-def is_action_allowed_for_program(token, method=None, path=None, program=None, opa_url=OPA_URL, admin_secret=None):
+def is_action_allowed_for_program(token, method=None, path=None, program=None, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Is the user allowed to perform this action on this program?
     """
@@ -204,7 +204,7 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     return False
 
 
-def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
+def get_user_email(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Returns the email address associated with the user.
     """
