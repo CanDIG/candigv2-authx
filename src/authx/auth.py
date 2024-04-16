@@ -159,7 +159,7 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_
     if admin_secret is not None:
         headers["X-Opa"] = f"{admin_secret}"
     response = requests.post(
-        opa_url + "/v1/data/idp/site_admin",
+        opa_url + "/v1/data/permissions/site_admin",
         headers=headers,
         json={
             "input": {
