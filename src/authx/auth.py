@@ -144,7 +144,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     return allowed_datasets
 
 
-def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=OPA_SECRET, site_admin_key=None):
+def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
