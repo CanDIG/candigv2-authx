@@ -575,6 +575,13 @@ def get_program_in_opa(program_id):
     return {"message": f"{program_id} not found"}, status_code
 
 
+def list_programs_in_opa():
+    progs_response, status_code = get_service_store_secret("opa", key="programs")
+    if status_code == 200:
+        return progs_response['programs'], status_code
+    return progs_response, status_code
+
+
 def add_program_to_opa(program_auth):
     """
     Creates or updates a ProgramAuthorization in Opa for the program_id.
