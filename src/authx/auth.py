@@ -17,6 +17,7 @@ TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
 TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
 TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
 SERVICE_NAME = os.getenv("SERVICE_NAME")
+CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -110,7 +111,7 @@ def get_site_admin_token(refresh_token=None):
     return get_access_token(username=username, password=password, refresh_token=refresh_token)
 
 
-def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
+def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Get allowed dataset result from OPA
     Returns array of strings
@@ -143,7 +144,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     return allowed_datasets
 
 
-def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_admin_key=None):
+def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
@@ -159,7 +160,7 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_
     if admin_secret is not None:
         headers["X-Opa"] = f"{admin_secret}"
     response = requests.post(
-        opa_url + "/v1/data/idp/site_admin",
+        opa_url + "/v1/data/permissions/site_admin",
         headers=headers,
         json={
             "input": {
@@ -172,7 +173,7 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None, site_
     return False
 
 
-def is_action_allowed_for_program(token, method=None, path=None, program=None, opa_url=OPA_URL, admin_secret=None):
+def is_action_allowed_for_program(token, method=None, path=None, program=None, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Is the user allowed to perform this action on this program?
     """
@@ -203,7 +204,7 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     return False
 
 
-def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
+def get_user_email(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     """
     Returns the email address associated with the user.
     """
@@ -218,7 +219,7 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
         if admin_secret is not None:
             headers["X-Opa"] = f"{admin_secret}"
         response = requests.post(
-            opa_url + "/v1/data/idp/email",
+            opa_url + f"/v1/data/idp/{CANDIG_USER_KEY}",
             headers=headers,
             json={
                 "input": {
@@ -508,7 +509,7 @@ def add_provider_to_opa(token, issuer, test_key=None):
     if jwks_response.status_code == 200:
         jwks_response = requests.get(jwks_response.json()["jwks_uri"])
         if jwks_response.status_code == 200:
-            new_provider = {"cert": jwks_response.text, "iss": jwt['iss']}
+            new_provider = {"cert": jwks_response.text, "iss": jwt['iss'], "aud": jwt['aud']}
             if test_key is not None:
                 new_provider['test'] = test_key
     else:
@@ -572,6 +573,13 @@ def get_program_in_opa(program_id):
     if status_code < 300:
         return response, status_code
     return {"message": f"{program_id} not found"}, status_code
+
+
+def list_programs_in_opa():
+    progs_response, status_code = get_service_store_secret("opa", key="programs")
+    if status_code == 200:
+        return progs_response['programs'], status_code
+    return progs_response, status_code
 
 
 def add_program_to_opa(program_auth):
