@@ -219,7 +219,7 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
         if admin_secret is not None:
             headers["X-Opa"] = f"{admin_secret}"
         response = requests.post(
-            opa_url + f"/v1/data/idp/{CANDIG_USER_KEY}",
+            opa_url + f"/v1/data/idp/user_key",
             headers=headers,
             json={
                 "input": {
