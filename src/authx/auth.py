@@ -261,7 +261,7 @@ def get_vault_token(token=None, vault_s3_token=None, vault_url=VAULT_URL):
     return vault_s3_token, 200
 
 
-def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=None, vault_s3_token=VAULT_S3_TOKEN):
+def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     """
     Look up S3 credentials in Vault.
     Returns credential object, status code
@@ -279,24 +279,15 @@ def get_aws_credential(token=None, vault_url=VAULT_URL, endpoint=None, bucket=No
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
 
-    vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=vault_url)
-    if status_code != 200:
-        return f"get_vault_token failed: {vault_token}", status_code
-    response = requests.get(
-        f"{vault_url}/v1/aws/{endpoint}-{bucket}",
-        headers={
-            "X-Vault-Token": vault_token
-            }
-    )
-    if response.status_code == 200:
-        result = response.json()['data']
-        result['endpoint'] = endpoint
-        result['bucket'] = bucket
-        return result, response.status_code
-    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, response.status_code
+    response, status_code = get_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}")
+    if status_code == 200:
+        response['endpoint'] = endpoint
+        response['bucket'] = bucket
+        return response, status_code
+    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, status_code
 
 
-def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_s3_token=VAULT_S3_TOKEN, vault_url=VAULT_URL):
+def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_url=VAULT_URL):
     """
     Store aws credentials in Vault.
     Returns credential object, status code
@@ -318,28 +309,49 @@ def store_aws_credential(token=None, endpoint=None, s3_url=None, bucket=None, ac
 
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
-    vault_token, status_code = get_vault_token(token=token, vault_s3_token=vault_s3_token, vault_url=vault_url)
-    if status_code != 200:
-        return f"get_vault_token failed: {vault_token}", status_code
-
-    headers={
-        "Authorization": f"Bearer {token}",
-        "X-Vault-Token": vault_token
-        }
-    url = f"{vault_url}/v1/aws/{endpoint}-{bucket}"
     body = {
-        "url": s3_url,
-        "access": access,
-        "secret": secret,
-        "secure": secure
-    }
-    response = requests.post(url, headers=headers, json=body)
-    if response.status_code >= 200 and response.status_code < 300:
-        response = requests.get(url, headers=headers)
-        result = response.json()["data"]
-        result["endpoint"] = endpoint
-        return result, 200
-    return response.json(), response.status_code
+            "url": s3_url,
+            "access_key": access,
+            "secret_key": secret,
+            "secure": secure
+        }
+    response, status_code = set_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}", value=body)
+    if status_code >= 200 and status_code < 300:
+        response, status_code = get_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}")
+        if status_code == 200:
+            response["endpoint"] = endpoint
+            response["bucket"] = bucket
+            return response, 200
+    return response, status_code
+
+
+def remove_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
+    """
+    Delete S3 credentials in Vault.
+    Returns credential object, status code
+    """
+    if endpoint is None or bucket is None:
+        return {"error": "Error getting S3 credentials: missing either endpoint or bucket"}, 400
+
+    # eat any http stuff from endpoint:
+    endpoint_parse = re.match(r"https*:\/\/(.+)?", endpoint)
+    if endpoint_parse is not None:
+        endpoint = endpoint_parse.group(1)
+    # if it's any sort of amazon endpoint, it can just be s3.amazonaws.com
+    if "amazonaws.com" in endpoint:
+        endpoint = "s3.amazonaws.com"
+    # clean up endpoint name:
+    endpoint = re.sub(r"\W", "_", endpoint)
+
+    status_code = delete_service_store_secret("candig-ingest", key=f"aws/{endpoint}-{bucket}")
+    if status_code == 200:
+        result = {}
+        result['endpoint'] = endpoint
+        result['bucket'] = bucket
+        return result, status_code
+    if status_code >= 400:
+        return {"error": "No such credential exists"}, status_code
+    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, status_code
 
 
 def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None, secret_key=None, region=None, secure=True, public=False):
@@ -360,8 +372,8 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
             response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
             if "error" in response:
                 raise CandigAuthError(response)
-            access_key = response["access"]
-            secret_key = response["secret"]
+            access_key = response["access_key"]
+            secret_key = response["secret_key"]
             url = response["url"]
             secure = response["secure"]
         else:
