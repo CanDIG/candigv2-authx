@@ -234,7 +234,7 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
 
 def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     """
-    Look up S3 credentials in Vault.
+    Look up S3 credentials in Vault. Executing service must be authorized to access candig-ingest's `/aws` Vault secret path.
     Returns credential object, status code
     """
     if endpoint is None or bucket is None:
@@ -260,7 +260,7 @@ def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
 
 def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_url=VAULT_URL):
     """
-    Store aws credentials in Vault.
+    Store aws credentials in Vault. Executing service must be authorized to write to candig-ingest's `/aws` Vault secret path.
     Returns credential object, status code
     """
     if endpoint is None or bucket is None or access is None or secret is None:
@@ -298,7 +298,7 @@ def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, s
 
 def remove_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     """
-    Delete S3 credentials in Vault.
+    Delete S3 credentials in Vault. Executing service must be authorized to delete from candig-ingest's `/aws` Vault secret path.
     Returns credential object, status code
     """
     if endpoint is None or bucket is None:
