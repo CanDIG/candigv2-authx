@@ -13,7 +13,6 @@ KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_URL', None)
 OPA_SECRET = os.getenv('OPA_SECRET', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
-VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 SITE_ADMIN_USER = os.getenv("CANDIG_SITE_ADMIN_USER", None)
 SITE_ADMIN_PASSWORD = os.getenv("CANDIG_SITE_ADMIN_PASSWORD", None)
 NOT_ADMIN_USER = os.getenv("CANDIG_NOT_ADMIN_USER", None)
@@ -162,19 +161,22 @@ def test_put_aws_credential():
     Test adding credentials to Vault
     """
     if VAULT_URL is not None:
+        if os.getenv("SERVICE_NAME") != "candig-ingest":
+            warnings.warn(UserWarning("aws credential tests can only be run within the candig-ingest container"))
+            return
         endpoint = "http://test.endpoint"
-        # store credential using vault_s3_token and not-site-admin token
-        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
+        # store credential using not-site-admin token
+        result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", vault_url=VAULT_URL)
         print(result, status_code)
         assert status_code == 200
 
         # try getting it with a non-site_admin token
-        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
+        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket")
         print(result)
         assert "errors" in result
 
         # try getting it with a site_admin token
-        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest(site_admin=True)), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket", vault_s3_token=None)
+        result, status_code = authx.auth.get_aws_credential(token=authx.auth.get_auth_token(FakeRequest(site_admin=True)), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket")
         assert result['secret'] == 'secret'
         assert result['url'] == 'test.endpoint'
     else:
@@ -192,7 +194,10 @@ def test_get_s3_url():
     fp.seek(0)
     if MINIO_URL is not None:
         if VAULT_URL is not None:
-            result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=MINIO_URL, bucket="test", access=MINIO_ACCESS_KEY, secret=MINIO_SECRET_KEY, vault_url=VAULT_URL, vault_s3_token=VAULT_S3_TOKEN)
+            if os.getenv("SERVICE_NAME") != "candig-ingest":
+                warnings.warn(UserWarning("aws credential tests can only be run within the candig-ingest container"))
+                return
+            result, status_code = authx.auth.store_aws_credential(token=authx.auth.get_auth_token(FakeRequest()),endpoint=MINIO_URL, bucket="test", access=MINIO_ACCESS_KEY, secret=MINIO_SECRET_KEY, vault_url=VAULT_URL)
             assert result['url'] in MINIO_URL
             minio = authx.auth.get_minio_client(token=authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, bucket="test")
             assert minio['endpoint'] == MINIO_URL
