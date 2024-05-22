@@ -31,8 +31,6 @@ Opa also confirms if a user is a site admin: `is_site_admin` checks for whether 
 
 Vault acts as the secret store for CanDIGv2.
 
-Services that require S3 access should have an environment variable `VAULT_S3_TOKEN` that is exchanged with Vault as a header `X-Vault-Token` for authorization to get the credentials. These exchanges are handled by the `get_aws_credential` and `store_aws_credential` methods.
-
 Every service can be set up to have its own secret store in Vault. Diff your module's setup against the lib/templates folder to see what you need to add to create a service store:
 
 - your-module_setup.sh needs to call `bash $PWD/create_service_store.sh "your-module"`
@@ -47,6 +45,8 @@ Every service can be set up to have its own secret store in Vault. Diff your mod
 ```
 
 Once those changes have been made, your service can read and write to its service store using the get_service_store_secret and set_service_store_secret methods.
+
+Services that require S3 access need to be authorized in `vault_setup.sh` to access candig-ingest's `aws` secret store. Once that authorization is set up, the service can use the get_aws_credential,
 
 
 ## Access to S3 objects: Minio
