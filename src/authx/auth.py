@@ -258,7 +258,7 @@ def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, status_code
 
 
-def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, secret=None, vault_url=VAULT_URL):
+def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, secret=None, region=None, vault_url=VAULT_URL):
     """
     Store aws credentials in Vault. Executing service must be authorized to write to candig-ingest's `/aws` Vault secret path.
     Returns credential object, status code
@@ -286,6 +286,8 @@ def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, s
             "secret_key": secret,
             "secure": secure
         }
+    if region is not None:
+        body["region"] = region
     response, status_code = set_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}", value=body)
     if status_code >= 200 and status_code < 300:
         response, status_code = get_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}")
