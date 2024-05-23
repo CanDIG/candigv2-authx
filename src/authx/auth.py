@@ -5,6 +5,7 @@ import jwt
 import base64
 import json
 import uuid
+import getpass
 
 
 ## Env vars for most auth methods:
@@ -106,7 +107,7 @@ def get_site_admin_token(refresh_token=None):
     if username is None:
         username = input("Enter username: ")
     if password is None:
-        password = input("Enter password: ")
+        password = getpass.getpass("Enter password: ")
 
     return get_access_token(username=username, password=password, refresh_token=refresh_token)
 
