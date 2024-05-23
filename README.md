@@ -19,11 +19,13 @@ Tyk acts as a proxy redirect service for the other services of CanDIGv2. When a 
 
 ## Authorization: Opa
 
-Opa does the actual lookup of roles and authorizations for users of CanDIGv2. It contains the information about which datasets a particular user is authorized to access: `get_opa_datasets` uses the email provided in the bearer token to look up the datasets that user is authorized to access.
+Opa does the actual lookup of roles and authorizations for users of CanDIGv2. It contains the information about which datasets a particular user is authorized to access.
+
+`get_opa_datasets` uses the user ID provided in the bearer token to look up the datasets that user is authorized to access for the given path and method. `is_action_allowed_for_program` returns True or False, depending on if the program is in the authorized datasets for the given path and method.
+
+`get_user_id` returns the ID (key defined in .env as CANDIG_USER_KEY) associated with the user.
 
 Opa also confirms if a user is a site admin: `is_site_admin` checks for whether or not this user is present in Opa's known site_admin role and returns True if so.
-
-`OPA_SECRET` is the Opa service's predefined token that authorizes a service to use Opa. It's set as part of the initial setup of the candig-opa container.
 
 `add_provider_to_opa` and `remove_provider_from_opa` add/remove new issuers to Opa.
 

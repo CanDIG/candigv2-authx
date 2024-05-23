@@ -11,7 +11,6 @@ import getpass
 ## Env vars for most auth methods:
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_URL', None)
-OPA_SECRET = os.getenv('OPA_SECRET', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
 VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
@@ -112,7 +111,7 @@ def get_site_admin_token(refresh_token=None):
     return get_access_token(username=username, password=password, refresh_token=refresh_token)
 
 
-def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
+def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     """
     Get allowed dataset result from OPA
     Returns array of strings
@@ -132,9 +131,6 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     headers = {
         "Authorization": f"Bearer {token}"
     }
-    if admin_secret is not None:
-        headers["X-Opa"] = f"{admin_secret}"
-
     response = requests.post(
         opa_url + "/v1/data/permissions/datasets",
         headers=headers,
@@ -145,7 +141,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
     return allowed_datasets
 
 
-def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=OPA_SECRET):
+def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
     """
     Is the user associated with the token a site admin?
     Returns boolean.
@@ -158,8 +154,6 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=OPA_SECRET)
     headers = {
         "Authorization": f"Bearer {token}"
     }
-    if admin_secret is not None:
-        headers["X-Opa"] = f"{admin_secret}"
     response = requests.post(
         opa_url + "/v1/data/permissions/site_admin",
         headers=headers,
@@ -174,7 +168,7 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=OPA_SECRET)
     return False
 
 
-def is_action_allowed_for_program(token, method=None, path=None, program=None, opa_url=OPA_URL, admin_secret=OPA_SECRET):
+def is_action_allowed_for_program(token, method=None, path=None, program=None, opa_url=OPA_URL, admin_secret=None):
     """
     Is the user allowed to perform this action on this program?
     """
@@ -184,8 +178,6 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     headers = {
         "Authorization": f"Bearer {token}"
     }
-    if admin_secret is not None:
-        headers["X-Opa"] = f"{admin_secret}"
     response = requests.post(
         opa_url + "/v1/data/permissions/allowed",
         headers=headers,
@@ -205,9 +197,9 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     return False
 
 
-def get_user_email(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
+def get_user_id(request, opa_url=OPA_URL):
     """
-    Returns the email address associated with the user.
+    Returns the ID (key defined in .env as CANDIG_USER_KEY) associated with the user.
     """
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
@@ -217,8 +209,6 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
         headers = {
             "Authorization": f"Bearer {token}"
         }
-        if admin_secret is not None:
-            headers["X-Opa"] = f"{admin_secret}"
         response = requests.post(
             opa_url + f"/v1/data/idp/user_key",
             headers=headers,
@@ -231,6 +221,13 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=OPA_SECRET):
         if 'result' in response.json():
             return response.json()['result']
     return None
+
+
+def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
+    """
+    Same as get_user_id, kept for backwards compatibility
+    """
+    return get_user_id(request, opa_url)
 
 
 def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
