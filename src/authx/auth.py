@@ -506,7 +506,8 @@ def add_provider_to_opa(token, issuer, test_key=None):
     if status_code == 200:
         # check to see if it's already here:
         found = False
-        for s in response["keys"]:
+        for i in range(0, len(response["keys"])):
+            s = response["keys"][i]
             if s['iss'] == new_provider['iss']:
                 found = True
                 if 'test' in new_provider:
@@ -515,10 +516,12 @@ def add_provider_to_opa(token, issuer, test_key=None):
                     else:
                         if s['test'] != new_provider['test']:
                             found = False # not the same because they have different test keys
+                if found:
+                    # replace with the new provider data
+                    response["keys"][i] = new_provider
+                    break
         if not found:
             response["keys"].append(new_provider)
-        else:
-            print(f"{issuer} is already a provider")
     else:
         response = {
             "keys": [new_provider]
