@@ -196,29 +196,30 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     return False
 
 
-def get_user_id(request, opa_url=OPA_URL):
+def get_user_id(request, token=None, opa_url=OPA_URL):
     """
     Returns the ID (key defined in .env as CANDIG_USER_KEY) associated with the user.
     """
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return None
-    if "Authorization" in request.headers:
-        token = get_auth_token(request)
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-        response = requests.post(
-            opa_url + f"/v1/data/idp/user_key",
-            headers=headers,
-            json={
-                "input": {
-                        "token": token
-                    }
+    if token is None:
+        if "Authorization" in request.headers:
+            token = get_auth_token(request)
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.post(
+        opa_url + f"/v1/data/idp/user_key",
+        headers=headers,
+        json={
+            "input": {
+                    "token": token
                 }
-            )
-        if 'result' in response.json():
-            return response.json()['result']
+            }
+        )
+    if 'result' in response.json():
+        return response.json()['result']
     return None
 
 
