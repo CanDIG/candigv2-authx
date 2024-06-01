@@ -457,10 +457,10 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
                 break
         if not found:
             api_json['openid_options']['providers'].append(new_provider)
-            response = requests.request("PUT", url, headers=headers, json=api_json)
-            if response.status_code == 200:
-                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
-                return requests.request("GET", url, headers=headers)
+        response = requests.request("PUT", url, headers=headers, json=api_json)
+        if response.status_code == 200:
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            return requests.request("GET", url, headers=headers)
     return response
 
 
