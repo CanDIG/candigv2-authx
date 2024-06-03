@@ -12,7 +12,6 @@ import getpass
 KEYCLOAK_PUBLIC_URL = os.getenv('KEYCLOAK_PUBLIC_URL', None)
 OPA_URL = os.getenv('OPA_URL', None)
 VAULT_URL = os.getenv('VAULT_URL', None)
-VAULT_S3_TOKEN = os.getenv('VAULT_S3_TOKEN', None)
 TYK_SECRET_KEY = os.getenv("TYK_SECRET_KEY")
 TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
 TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
@@ -197,29 +196,30 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     return False
 
 
-def get_user_id(request, opa_url=OPA_URL):
+def get_user_id(request, token=None, opa_url=OPA_URL):
     """
     Returns the ID (key defined in .env as CANDIG_USER_KEY) associated with the user.
     """
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return None
-    if "Authorization" in request.headers:
-        token = get_auth_token(request)
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-        response = requests.post(
-            opa_url + f"/v1/data/idp/user_key",
-            headers=headers,
-            json={
-                "input": {
-                        "token": token
-                    }
+    if token is None:
+        if "Authorization" in request.headers:
+            token = get_auth_token(request)
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.post(
+        opa_url + f"/v1/data/idp/user_key",
+        headers=headers,
+        json={
+            "input": {
+                    "token": token
                 }
-            )
-        if 'result' in response.json():
-            return response.json()['result']
+            }
+        )
+    if 'result' in response.json():
+        return response.json()['result']
     return None
 
 
@@ -449,16 +449,18 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
         api_json = response.json()
         # check to see if it's already here:
         found = False
-        for s in api_json['openid_options']['providers']:
+        for i in range(0, len(api_json['openid_options']['providers'])):
+            s = api_json['openid_options']['providers'][i]
             if json.dumps(s, sort_keys=True) == json.dumps(new_provider, sort_keys=True):
                 found = True
+                api_json['openid_options']['providers'][i] = new_provider
+                break
         if not found:
             api_json['openid_options']['providers'].append(new_provider)
-            response = requests.request("PUT", url, headers=headers, json=api_json)
-            if response.status_code == 200:
-                response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
-                print("reloaded")
-                return requests.request("GET", url, headers=headers)
+        response = requests.request("PUT", url, headers=headers, json=api_json)
+        if response.status_code == 200:
+            response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
+            return requests.request("GET", url, headers=headers)
     return response
 
 
@@ -506,7 +508,8 @@ def add_provider_to_opa(token, issuer, test_key=None):
     if status_code == 200:
         # check to see if it's already here:
         found = False
-        for s in response["keys"]:
+        for i in range(0, len(response["keys"])):
+            s = response["keys"][i]
             if s['iss'] == new_provider['iss']:
                 found = True
                 if 'test' in new_provider:
@@ -515,10 +518,12 @@ def add_provider_to_opa(token, issuer, test_key=None):
                     else:
                         if s['test'] != new_provider['test']:
                             found = False # not the same because they have different test keys
+                if found:
+                    # replace with the new provider data
+                    response["keys"][i] = new_provider
+                    break
         if not found:
             response["keys"].append(new_provider)
-        else:
-            print(f"{issuer} is already a provider")
     else:
         response = {
             "keys": [new_provider]
