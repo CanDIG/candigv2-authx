@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 version = "v2.4.3"
-name = "candigv2_authx"
+name = "candigv2-authx"
 dependencies = [
     "requests>=2.25.1",
     "minio>=7.1.7",
