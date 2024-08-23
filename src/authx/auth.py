@@ -86,6 +86,11 @@ def get_access_token(
     refresh_token=None
     ):
 
+    if client_id is None:
+        client_id = get_service_store_secret("keycloak", "client-id")
+    if client_secret is None:
+        client_secret = get_service_store_secret("keycloak", "client-secret")
+
     result = get_oauth_response(
         keycloak_url=keycloak_url,
         client_id=client_id,
