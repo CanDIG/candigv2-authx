@@ -34,7 +34,12 @@ def get_auth_token(request):
     token = request.headers['Authorization']
     if token is None:
         return None
-    return token.split()[1]
+
+    token = token.split()[1]
+    data = jwt.decode(token, options={"verify_signature": False})
+    if data["typ"] == "Refresh":
+        return get_access_token(refresh_token=token)
+    return token
 
 
 def get_oauth_response(
