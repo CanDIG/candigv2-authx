@@ -38,6 +38,7 @@ def get_auth_token(request):
     if token is None:
         return None
 
+    token = token.split(",")[0].strip()
     token = token.split()[1]
     data = jwt.decode(token, options={"verify_signature": False})
     if data["typ"] == "Refresh":
