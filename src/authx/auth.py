@@ -6,6 +6,7 @@ import base64
 import json
 import uuid
 import getpass
+from candigv2_logging.logging import CanDIGLogger
 
 
 ## Env vars for most auth methods:
@@ -21,6 +22,8 @@ CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
 CLIENT_SECRET = os.getenv("CANDIG_CLIENT_SECRET", None)
+
+logger = CanDIGLogger(__file__)
 
 
 class CandigAuthError(Exception):
