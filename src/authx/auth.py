@@ -6,6 +6,7 @@ import base64
 import json
 import uuid
 import getpass
+from candigv2_logging.logging import CanDIGLogger
 
 
 ## Env vars for most auth methods:
@@ -22,6 +23,8 @@ CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
 CLIENT_SECRET = os.getenv("CANDIG_CLIENT_SECRET", None)
 
+logger = CanDIGLogger(__file__)
+
 
 class CandigAuthError(Exception):
     pass
@@ -34,7 +37,13 @@ def get_auth_token(request):
     token = request.headers['Authorization']
     if token is None:
         return None
-    return token.split()[1]
+
+    token = token.split(",")[0].strip()
+    token = token.split()[1]
+    data = jwt.decode(token, options={"verify_signature": False})
+    if data["typ"] == "Refresh":
+        return get_access_token(refresh_token=token)
+    return token
 
 
 def get_oauth_response(
@@ -73,8 +82,6 @@ def get_oauth_response(
     response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()
-    elif response.status_code == 400:
-        return {"error": response.text}
     else:
         raise CandigAuthError(f"Error obtaining access token: {response.text}")
 
@@ -87,6 +94,11 @@ def get_access_token(
     password=None,
     refresh_token=None
     ):
+
+    if client_id is None:
+        client_id = get_service_store_secret("keycloak", "client-id")
+    if client_secret is None:
+        client_secret = get_service_store_secret("keycloak", "client-secret")
 
     result = get_oauth_response(
         keycloak_url=keycloak_url,
