@@ -83,7 +83,7 @@ def get_oauth_response(
     if response.status_code == 200:
         return response.json()
     else:
-        raise CandigAuthError(f"Error obtaining access token: {response.text}")
+        return {"error": f"Error obtaining access token: {response.text}"}
 
 
 def get_access_token(
