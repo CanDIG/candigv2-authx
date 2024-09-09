@@ -50,6 +50,7 @@ def get_auth_token(request):
 def get_oauth_response(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     keycloak_realm=KEYCLOAK_REALM,
+    keycloak_realm_url=None,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
@@ -81,7 +82,10 @@ def get_oauth_response(
             payload["username"] = username
             payload["password"] = password
 
-    response = requests.post(f"{keycloak_url}/auth/realms/candig/protocol/openid-connect/token", data=payload)
+    url = keycloak_realm_url
+    if url is None:
+        url = f"{keycloak_url}/auth/realms/{keycloak_realm}"
+    response = requests.post(f"{url}/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()
     else:
