@@ -22,6 +22,7 @@ CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
 CLIENT_SECRET = os.getenv("CANDIG_CLIENT_SECRET", None)
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "candig")
 
 logger = CanDIGLogger(__file__)
 
@@ -48,6 +49,7 @@ def get_auth_token(request):
 
 def get_oauth_response(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
+    keycloak_realm=KEYCLOAK_REALM,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
