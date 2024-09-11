@@ -102,9 +102,13 @@ def get_access_token(
     ):
 
     if client_id is None:
-        client_id = get_service_store_secret("keycloak", "client-id")
+        response = get_service_store_secret("keycloak", "client-id")
+        if response[1] == 200:
+            client_id = response[0]["value"]
     if client_secret is None:
-        client_secret = get_service_store_secret("keycloak", "client-secret")
+        response = get_service_store_secret("keycloak", "client-secret")
+        if response[1] == 200:
+            client_secret = response[0]["value"]
 
     result = get_oauth_response(
         keycloak_url=keycloak_url,
