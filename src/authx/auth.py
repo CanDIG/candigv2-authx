@@ -63,6 +63,8 @@ def get_oauth_response(
     if keycloak_url is None:
         raise CandigAuthError("keycloak_url was not provided")
     if client_id is None or client_secret is None:
+        print(f"client_id: {client_id}")
+        print(f"client_secret: {client_secret}")
         raise CandigAuthError("client_id and client_secret required for token")
 
     payload = {
