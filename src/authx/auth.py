@@ -153,13 +153,15 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         "Authorization": f"Bearer {token}"
     }
     response = requests.post(
-        opa_url + "/v1/data/permissions/datasets",
+        opa_url + "/v1/data/permissions",
         headers=headers,
         json=body
     )
     response.raise_for_status()
-    allowed_datasets = response.json()["result"]
-    return allowed_datasets
+    if "datasets" in response.json()["result"]:
+        return response.json()["result"]["datasets"]
+
+    return []
 
 
 def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
@@ -176,7 +178,7 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
         "Authorization": f"Bearer {token}"
     }
     response = requests.post(
-        opa_url + "/v1/data/permissions/site_admin",
+        opa_url + "/v1/data/permissions",
         headers=headers,
         json={
             "input": {
@@ -184,8 +186,8 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
                 }
             }
         )
-    if 'result' in response.json():
-        return True
+    if 'site_admin' in response.json()["result"]:
+        return response.json()["result"]["site_admin"]
     return False
 
 
@@ -200,7 +202,7 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
         "Authorization": f"Bearer {token}"
     }
     response = requests.post(
-        opa_url + "/v1/data/permissions/allowed",
+        opa_url + "/v1/data/permissions",
         headers=headers,
         json={
             "input": {
@@ -213,8 +215,8 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
                 }
             }
         )
-    if 'result' in response.json():
-        return True
+    if 'allowed' in response.json()["result"]:
+        return response.json()["result"]["allowed"]
     return False
 
 
