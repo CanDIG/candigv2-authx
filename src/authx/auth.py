@@ -157,9 +157,9 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         headers=headers,
         json=body
     )
-    response.raise_for_status()
-    if "datasets" in response.json()["result"]:
-        return response.json()["result"]["datasets"]
+    if response.status_code == 200:
+        if "datasets" in response.json()["result"]:
+            return response.json()["result"]["datasets"]
 
     return []
 
@@ -186,8 +186,9 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
                 }
             }
         )
-    if 'site_admin' in response.json()["result"]:
-        return response.json()["result"]["site_admin"]
+    if response.status_code == 200:
+        if 'site_admin' in response.json()["result"]:
+            return response.json()["result"]["site_admin"]
     return False
 
 
@@ -215,8 +216,9 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
                 }
             }
         )
-    if 'allowed' in response.json()["result"]:
-        return response.json()["result"]["allowed"]
+    if response.status_code == 200:
+        if 'allowed' in response.json()["result"]:
+            return response.json()["result"]["allowed"]
     return False
 
 
@@ -242,8 +244,9 @@ def get_user_id(request, token=None, opa_url=OPA_URL):
                 }
             }
         )
-    if 'result' in response.json():
-        return response.json()['result']
+    if response.status_code == 200:
+        if 'result' in response.json():
+            return response.json()['result']
     return None
 
 
