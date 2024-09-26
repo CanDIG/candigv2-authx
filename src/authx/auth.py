@@ -31,16 +31,17 @@ class CandigAuthError(Exception):
     pass
 
 
-def get_auth_token(request):
+def get_auth_token(request, token=None):
     """
     Extracts token from request's Authorization header
     """
-    token = request.headers['Authorization']
+    if request is not None:
+        token = request.headers['Authorization']
+        token = token.split(",")[0].strip()
+        token = token.split()[1]
     if token is None:
         return None
 
-    token = token.split(",")[0].strip()
-    token = token.split()[1]
     data = jwt.decode(token, options={"verify_signature": False})
     if data["typ"] == "Refresh":
         return get_access_token(refresh_token=token)
@@ -196,6 +197,8 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     """
     Is the user allowed to perform this action on this program?
     """
+
+    token = get_auth_token(None, token=token)
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return True
