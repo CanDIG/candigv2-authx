@@ -405,10 +405,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
         )
 
     if not client.bucket_exists(bucket):
-        if region is None:
-            client.make_bucket(bucket)
-        else:
-            client.make_bucket(bucket, location=region)
+        raise CandigAuthError(f"bucket {bucket} does not exist at {url}")
 
     return {
         "endpoint": endpoint,
