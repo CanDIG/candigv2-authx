@@ -145,11 +145,15 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         "input": {
             "token": token,
             "body": {
-                "path": request.path,
                 "method": request.method
             }
         }
     }
+    if hasattr(request, 'path'):
+        body["input"]["body"]["path"] = request.path
+    elif hasattr(request, 'url'):
+        body["input"]["body"]["path"] = request.url
+
     headers = {
         "Authorization": f"Bearer {token}"
     }
