@@ -664,7 +664,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
         raise CandigAuthError("no SERVICE_NAME specified")
     # in CanDIGv2 docker stack, approle token should have been passed in
     if approle_token is None:
-        with open("/run/secrets/vault-approle-token") as f:
+        with open("/home/candig/approle-token") as f:
             approle_token = f.read().strip()
     if approle_token is None:
         raise CandigAuthError("no approle token found")
