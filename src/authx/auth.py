@@ -374,7 +374,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     else:
         endpoint = s3_endpoint
         if access_key is None and not public:
-            response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
+            response, status_code = get_aws_credential(endpoint=s3_endpoint, bucket=bucket)
             if "error" in response:
                 raise CandigAuthError(response)
             access_key = response["access_key"]
