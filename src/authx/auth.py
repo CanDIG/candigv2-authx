@@ -753,7 +753,7 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
     if response.status_code == 200:
         result = response.json()["data"]
         return result, 200
-    return response.text, response.status_code
+    return {"error": response.text}, response.status_code
 
 
 def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
