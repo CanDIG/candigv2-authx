@@ -348,7 +348,7 @@ def remove_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
 
-    status_code = delete_service_store_secret("candig-ingest", key=f"aws/{endpoint}-{bucket}")
+    status_code = delete_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}")
     if status_code == 200:
         result = {}
         result['endpoint'] = endpoint
