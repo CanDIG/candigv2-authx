@@ -166,17 +166,11 @@ def test_put_aws_credential():
             return
         endpoint = "http://test.endpoint"
         # store credential using not-site-admin token
-        result, status_code = src.authx.auth.store_aws_credential(token=src.authx.auth.get_auth_token(FakeRequest()), endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", vault_url=VAULT_URL)
+        result, status_code = src.authx.auth.store_aws_credential(endpoint=endpoint, bucket="test_bucket", access="test", secret="secret", vault_url=VAULT_URL)
         print(result, status_code)
         assert status_code == 200
 
-        # try getting it with a non-site_admin token
-        result, status_code = src.authx.auth.get_aws_credential(token=src.authx.auth.get_auth_token(FakeRequest()), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket")
-        print(result)
-        assert "errors" in result
-
-        # try getting it with a site_admin token
-        result, status_code = src.authx.auth.get_aws_credential(token=src.authx.auth.get_auth_token(FakeRequest(site_admin=True)), vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket")
+        result, status_code = src.authx.auth.get_aws_credential(vault_url=VAULT_URL, endpoint=endpoint, bucket="test_bucket")
         assert result['secret'] == 'secret'
         assert result['url'] == 'test.endpoint'
     else:
@@ -197,7 +191,7 @@ def test_get_s3_url():
             if os.getenv("SERVICE_NAME") != "candig-ingest":
                 warnings.warn(UserWarning("aws credential tests can only be run within the candig-ingest container"))
                 return
-            result, status_code = src.authx.auth.store_aws_credential(token=src.authx.auth.get_auth_token(FakeRequest()),endpoint=MINIO_URL, bucket="test", access=MINIO_ACCESS_KEY, secret=MINIO_SECRET_KEY, vault_url=VAULT_URL)
+            result, status_code = src.authx.auth.store_aws_credential(endpoint=MINIO_URL, bucket="test", access=MINIO_ACCESS_KEY, secret=MINIO_SECRET_KEY, vault_url=VAULT_URL)
             assert result['url'] in MINIO_URL
             minio = src.authx.auth.get_minio_client(token=src.authx.auth.get_auth_token(FakeRequest()), s3_endpoint=MINIO_URL, bucket="test")
             assert minio['endpoint'] == MINIO_URL

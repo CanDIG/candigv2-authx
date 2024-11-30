@@ -348,7 +348,7 @@ def remove_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
 
-    status_code = delete_service_store_secret("candig-ingest", key=f"aws/{endpoint}-{bucket}")
+    status_code = delete_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}")
     if status_code == 200:
         result = {}
         result['endpoint'] = endpoint
@@ -374,7 +374,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
     else:
         endpoint = s3_endpoint
         if access_key is None and not public:
-            response, status_code = get_aws_credential(token=token, endpoint=s3_endpoint, bucket=bucket)
+            response, status_code = get_aws_credential(endpoint=s3_endpoint, bucket=bucket)
             if "error" in response:
                 raise CandigAuthError(response)
             access_key = response["access_key"]
