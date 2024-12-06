@@ -261,7 +261,7 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
     """
     Same as get_user_id, kept for backwards compatibility
     """
-    return get_user_id(request, opa_url)
+    return get_user_id(request, opa_url=opa_url)
 
 
 def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
@@ -560,6 +560,8 @@ def add_provider_to_opa(token, issuer, test_key=None):
             "keys": [new_provider]
         }
     response, status_code = set_service_store_secret("opa", key="data", value=json.dumps(response))
+    if status_code != 200:
+        raise CandigAuthError(f"couldn't add provider to opa: {response}")
     return response["keys"]
 
 

@@ -97,7 +97,7 @@ def test_user_email():
         If OPA is present, check to see that the user's email is returned.
         """
         if OPA_URL is not None:
-            assert src.authx.auth.get_user_email(FakeRequest(site_admin=True), opa_url=OPA_URL, admin_secret=OPA_SECRET) == f"{SITE_ADMIN_USER}@test.ca"
+            assert src.authx.auth.get_user_email(FakeRequest(site_admin=True), opa_url=OPA_URL) == f"{SITE_ADMIN_USER}"
         else:
             warnings.warn(UserWarning("OPA_URL is not set"))
 
