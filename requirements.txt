@@ -1,6 +1,6 @@
 requests==2.32.2
-minio==7.1.7
+minio==7.2.12
 pytest==8.3.3
 PyJWT==2.6.0
 cryptography>=3.4.0
-candigv2-logging@git+https://github.com/CanDIG/candigv2-logging.git@v1.0.0
+candigv2-logging@git+https://github.com/CanDIG/candigv2-logging.git@v1.0.1
