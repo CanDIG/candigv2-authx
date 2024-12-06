@@ -62,7 +62,7 @@ For convenience, `get_s3_url` is a one-stop method for returning a presigned URL
 Add the following to your requirements.txt:
 
 ```
-candigv2-authx@git+https://github.com/CanDIG/candigv2-authx.git@main
+candigv2-authx@git+https://github.com/CanDIG/candigv2-authx.git@develop
 ```
 
 Then add `import authx.auth` to your code.
