@@ -18,6 +18,8 @@ TYK_POLICY_ID = os.getenv("TYK_POLICY_ID")
 TYK_LOGIN_TARGET_URL = os.getenv("TYK_LOGIN_TARGET_URL")
 SERVICE_NAME = os.getenv("SERVICE_NAME")
 CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
+APPROLE_TOKEN_FILE = os.getenv("APPROLE_TOKEN_FILE", "/home/candig/approle-token")
+ROLE_ID_FILE = os.getenv("ROLE_ID_FILE", "/home/candig/roleid")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -666,7 +668,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
         raise CandigAuthError("no SERVICE_NAME specified")
     # in CanDIGv2 docker stack, approle token should have been passed in
     if approle_token is None:
-        with open("/home/candig/approle-token") as f:
+        with open(APPROLE_TOKEN_FILE) as f:
             approle_token = f.read().strip()
     if approle_token is None:
         raise CandigAuthError("no approle token found")
@@ -674,7 +676,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
     # in CanDIGv2 docker stack, roleid should have been passed in
     if role_id is None:
         try:
-            with open("/home/candig/roleid") as f:
+            with open(ROLE_ID_FILE) as f:
                 role_id = f.read().strip()
         except Exception as e:
             raise CandigAuthError(str(e))
