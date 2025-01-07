@@ -382,7 +382,7 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
             access_key = response["access_key"]
             secret_key = response["secret_key"]
             url = response["url"]
-            secure = response["secure"]
+            secure = (response["secure"] == "True")
         else:
             endpoint_parse = re.match(r"(https*):\/\/(.+)?", endpoint)
             if endpoint_parse is not None:
