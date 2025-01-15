@@ -290,7 +290,7 @@ def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
         response['endpoint'] = endpoint
         response['bucket'] = bucket
         return response, status_code
-    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}"}, status_code
+    return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}: {response}"}, status_code
 
 
 def store_aws_credential(endpoint=None, s3_url=None, bucket=None, access=None, secret=None, region=None, vault_url=VAULT_URL):
