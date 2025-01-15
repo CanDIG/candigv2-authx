@@ -734,8 +734,7 @@ def add_pending_user_to_opa(user_token):
         "user": {
             "user_name": user_name,
             "sample_jwt": user_token
-        },
-        "programs": {}
+        }
     }
 
     response["pending_users"][user_name] = user_dict
@@ -768,6 +767,7 @@ def approve_pending_user_in_opa(user_name):
     pending_users = response["pending_users"]
     if user_name in pending_users:
         user_dict = pending_users[user_name]
+        user_dict["programs"] = {}
         response2, status_code = write_user_in_opa(user_dict)
         if status_code == 200:
             pending_users.pop(user_name)
