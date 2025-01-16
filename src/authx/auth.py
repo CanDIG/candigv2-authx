@@ -757,7 +757,7 @@ def list_pending_users_in_opa():
     return response, status_code
 
 
-def is_self_pending(token):
+def is_user_pending(token):
     response, status_code = get_service_store_secret("opa", key=f"pending_users")
     if status_code == 200:
         user_name = get_user_id(None, token=token)
