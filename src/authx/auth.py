@@ -675,14 +675,14 @@ def remove_program_from_opa(program_id):
 def list_role_types_in_opa():
     result, status_code = get_service_store_secret("opa", key=f"site_roles")
     if status_code == 200:
-        return result['site_roles'], 200
+        return list(result['site_roles'].keys()), 200
     return result, status_code
 
 
 def get_role_type_in_opa(role_type):
     result, status_code = get_service_store_secret("opa", key=f"site_roles")
     if status_code == 200:
-        if role_type in result['site_roles']:
+        if role_type in list(result['site_roles'].keys()):
             return {role_type: result['site_roles'][role_type]}, 200
         return {"error": f"role type {role_type} does not exist"}, 404
     return result, status_code
