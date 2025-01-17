@@ -745,16 +745,21 @@ def add_pending_user_to_opa(user_token):
     if user_name is None:
         return {"error": "Could not verify jwt or obtain user ID"}, 403
 
+    if user_name in response["pending_users"]:
+        # return 200 to indicate OK but nothing was added
+        return {"message": f"User {user_name} already pending"}, 200
+
     user_dict = {
         "userinfo": {
             "user_name": user_name,
             "sample_jwt": user_token
         }
     }
-
     response["pending_users"][user_name] = user_dict
 
     response, status_code = set_service_store_secret("opa", key=f"pending_users", value=json.dumps(response))
+    if status_code == 200:
+        return response, 201 # 201 created, to indicate that we added the user
     return response, status_code
 
 
