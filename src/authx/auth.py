@@ -705,7 +705,7 @@ def set_role_type_in_opa(role_type, members):
 #####
 
 def write_user_in_opa(user_dict):
-    safe_name = urllib.parse.quote_plus(user_dict['user']['user_name'])
+    safe_name = urllib.parse.quote_plus(user_dict['userinfo']['user_name'])
     response, status_code = set_service_store_secret("opa", key=f"users/{safe_name}", value=json.dumps(user_dict))
     return response, status_code
 
@@ -746,7 +746,7 @@ def add_pending_user_to_opa(user_token):
         return {"error": "Could not verify jwt or obtain user ID"}, 403
 
     user_dict = {
-        "user": {
+        "userinfo": {
             "user_name": user_name,
             "sample_jwt": user_token
         }
@@ -782,7 +782,7 @@ def approve_pending_user_in_opa(user_name):
     pending_users = response["pending_users"]
     if user_name in pending_users:
         user_dict = pending_users[user_name]
-        user_dict["programs"] = {}
+        user_dict["dac_authorizations"] = {}
         response2, status_code = write_user_in_opa(user_dict)
         if status_code == 200:
             pending_users.pop(user_name)
