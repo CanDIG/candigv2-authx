@@ -640,6 +640,14 @@ def add_program_to_opa(program_auth):
             response2, status_code = set_service_store_secret("opa", key="programs", value=json.dumps(response2))
             return response, status_code
 
+    # add the users to the preapproved user list
+    for user_id in program_auth["team_members"]:
+        # if the user isn't already approved, make sure they will be:
+        response, status_code = add_preapproved_user_in_opa(user_id)
+    for user_id in program_auth["program_curators"]:
+        # if the user isn't already approved, make sure they will be:
+        response, status_code = add_preapproved_user_in_opa(user_id)
+
     return {"message": f"{program_id} not added"}, status_code
 
 
@@ -692,6 +700,10 @@ def set_role_type_in_opa(role_type, members):
     result, status_code = get_service_store_secret("opa", key=f"site_roles")
     if status_code == 200:
         if role_type in result['site_roles']:
+            for user_id in members:
+                # if the user isn't already approved, make sure they will be:
+                response, status_code = add_preapproved_user_in_opa(user_id)
+
             result['site_roles'][role_type] = members
             result, status_code = set_service_store_secret("opa", key=f"site_roles", value=json.dumps(result))
             if status_code == 200:
@@ -728,6 +740,10 @@ def get_self_in_opa(token):
 def remove_user_from_opa(user_name):
     safe_name = urllib.parse.quote_plus(user_name)
     response, status_code = delete_service_store_secret("opa", key=f"users/{safe_name}")
+
+    # if the user was preapproved, take them out of that list
+    remove_preapproved_user_in_opa(safe_name)
+
     return response, status_code
 
 
@@ -745,21 +761,26 @@ def add_pending_user_to_opa(user_token):
     if user_name is None:
         return {"error": "Could not verify jwt or obtain user ID"}, 403
 
-    if user_name in response["pending_users"]:
-        # return 200 to indicate OK but nothing was added
-        return {"message": f"User {user_name} already pending"}, 200
-
     user_dict = {
         "userinfo": {
             "user_name": user_name,
             "sample_jwt": user_token
         }
     }
-    response["pending_users"][user_name] = user_dict
+    if user_name not in response["pending_users"]:
+        response["pending_users"][user_name] = user_dict
 
-    response, status_code = set_service_store_secret("opa", key=f"pending_users", value=json.dumps(response))
-    if status_code == 200:
-        return response, 201 # 201 created, to indicate that we added the user
+        response, status_code = set_service_store_secret("opa", key=f"pending_users", value=json.dumps(response))
+
+        if status_code == 200:
+            preapproved_users, status_code = list_preapproved_users_in_opa()
+            if status_code == 200:
+                if user_name in preapproved_users:
+                    return approve_pending_user_in_opa(user_name)
+            return response, 201 # return 201 to indicate that the user was added to the list
+    else:
+        # return 200 to indicate OK but nothing was added
+        return {"message": f"User {user_name} already pending"}, 200
     return response, status_code
 
 
@@ -792,9 +813,10 @@ def approve_pending_user_in_opa(user_name):
         if status_code == 200:
             pending_users.pop(user_name)
             response3, status_code = set_service_store_secret("opa", key=f"pending_users", value=json.dumps(response))
+            return {"message": f"User {user_name} has been approved"}, status_code
+        return response2, status_code
     else:
         return {"error": f"no pending user with ID {user_name}"}, 404
-    return response, status_code
 
 
 def reject_pending_user_in_opa(user_name):
@@ -814,6 +836,62 @@ def reject_pending_user_in_opa(user_name):
 
 def clear_pending_users_in_opa():
     response, status_code = set_service_store_secret("opa", key="pending_users", value=json.dumps({"pending_users": {}}))
+    return response, status_code
+
+
+#####
+# Preapproved user authorizations
+#####
+
+def list_preapproved_users_in_opa():
+    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
+    if status_code == 200:
+        response = response["preapproved_users"]
+    return response, status_code
+
+
+def clear_preapproved_users_in_opa():
+    response, status_code = set_service_store_secret("opa", key="preapproved_users", value=json.dumps({"preapproved_users": {}}))
+    return response, status_code
+
+
+def get_preapproved_user(user_name):
+    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
+    if status_code == 200:
+        response = user_name in response["preapproved_users"]
+    else:
+        response = False
+    return response, status_code
+
+
+def add_preapproved_user_in_opa(user_name):
+    logger.debug(f"adding preapproved user {user_name}")
+    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
+
+    if user_name in response["preapproved_users"]:
+        # return 200 to indicate OK but nothing was added
+        return {"message": f"User {user_name} already preapproved"}, 200
+
+    response["preapproved_users"].append(user_name)
+
+    response, status_code = set_service_store_secret("opa", key=f"preapproved_users", value=json.dumps(response))
+    if status_code == 200:
+        return response, 201 # 201 created, to indicate that we added the user
+    return response, status_code
+
+
+def remove_preapproved_user_in_opa(user_name):
+    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
+    if status_code != 200:
+        return response, status_code
+    preapproved_users = response["preapproved_users"]
+
+    if user_name in preapproved_users:
+        preapproved_users.remove(user_name)
+        response, status_code = set_service_store_secret("opa", key=f"preapproved_users", value=json.dumps({"preapproved_users": preapproved_users}))
+
+    else:
+        return {"error": f"no preapproved user with ID {user_name}"}, 404
     return response, status_code
 
 
