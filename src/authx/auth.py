@@ -359,7 +359,7 @@ def remove_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     # clean up endpoint name:
     endpoint = re.sub(r"\W", "_", endpoint)
 
-    status_code = delete_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}")
+    response, status_code = delete_service_store_secret("candig-ingest", key=f"aws/{endpoint}/{bucket}")
     if status_code == 200:
         result = {}
         result['endpoint'] = endpoint
@@ -661,7 +661,7 @@ def remove_program_from_opa(program_id):
         return response, status_code
     if status_code < 300:
         # create or update the program itself
-        response = delete_service_store_secret("opa", key=f"programs/{program_id}")
+        response, status_code = delete_service_store_secret("opa", key=f"programs/{program_id}")
 
         # update the values for the program list
         response, status_code = get_service_store_secret("opa", key="programs")
@@ -1019,7 +1019,7 @@ def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=
     }
     url = f"{vault_url}/v1/{service}/{key}"
     response = requests.delete(url, headers=headers)
-    return response.status_code
+    return response.text, response.status_code
 
 
 def create_service_token(vault_url=VAULT_URL):
