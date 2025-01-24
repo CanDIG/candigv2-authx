@@ -742,7 +742,25 @@ def remove_user_from_opa(user_name):
     response, status_code = delete_service_store_secret("opa", key=f"users/{safe_name}")
 
     # if the user was preapproved, take them out of that list
-    remove_preapproved_user_in_opa(safe_name)
+    remove_preapproved_user_in_opa(user_name)
+
+    # remove the user from any site roles:
+    site_roles, status_code = list_role_types_in_opa()
+    for role_type in site_roles:
+        members, status_code = get_role_type_in_opa(role_type)
+        if user_name in members:
+            members.remove(user_name)
+            set_role_type_in_opa(role_type, members)
+
+    # remove the user from any program roles:
+    programs, status_code = list_programs_in_opa()
+    for program_id in programs:
+        program, status_code = get_program_in_opa(program_id)
+        if user_name in program["program_curators"]:
+            program["program_curators"].remove(user_name)
+        if user_name in program["team_members"]:
+            program["team_members"].remove(user_name)
+        add_program_to_opa(program)
 
     return response, status_code
 
