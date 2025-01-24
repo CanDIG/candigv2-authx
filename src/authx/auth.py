@@ -603,7 +603,7 @@ def get_program_in_opa(program_id):
     """
     response, status_code = get_service_store_secret("opa", key=f"programs/{program_id}")
     if status_code < 300:
-        return response, status_code
+        return response[program_id], status_code
     return {"message": f"{program_id} not found"}, status_code
 
 
