@@ -779,6 +779,9 @@ def add_pending_user_to_opa(user_token):
     if user_name is None:
         return {"error": "Could not verify jwt or obtain user ID"}, 403
 
+    user, status_code = get_user_in_opa(user_name)
+    if status_code != 404:
+        return {"message": f"User {user_name} is already a CanDIG authorized user"}, 200
     user_dict = {
         "userinfo": {
             "user_name": user_name,
