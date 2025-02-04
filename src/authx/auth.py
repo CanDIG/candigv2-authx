@@ -298,6 +298,8 @@ def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
         response['endpoint'] = endpoint
         response['bucket'] = bucket
         return response, status_code
+    if status_code == 404:
+        return {"error": f"No aws credential exists for endpoint {endpoint} and bucket {bucket}"}, status_code
     return {"error": f"Vault error: could not get credential for endpoint {endpoint} and bucket {bucket}: {response}"}, status_code
 
 
