@@ -874,7 +874,7 @@ def list_preapproved_users_in_opa():
 
 
 def clear_preapproved_users_in_opa():
-    response, status_code = set_service_store_secret("opa", key="preapproved_users", value=json.dumps({"preapproved_users": {}}))
+    response, status_code = set_service_store_secret("opa", key="preapproved_users", value=json.dumps({"preapproved_users": []}))
     return response, status_code
 
 
