@@ -734,8 +734,8 @@ def get_user_in_opa(user_name):
 
 
 def get_self_in_opa(token):
-    safe_name = urllib.parse.quote_plus(get_user_id(None, token=token))
-    response, status_code = get_service_store_secret("opa", key=f"users/{safe_name}")
+    user_name = get_user_id(None, token=token)
+    response, status_code = get_user_in_opa(user_name)
     return response, status_code
 
 
