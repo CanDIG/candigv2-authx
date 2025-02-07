@@ -240,6 +240,16 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
     return False
 
 
+def is_user_candig_authorized(request, token=None):
+    # if the user is in opa, they are CanDIG-authorized
+    try:
+        response, status_code = get_self_in_opa(get_auth_token(request, token=token))
+    except Exception as e:
+        logger.debug(f"raised exception {type(e)} {str(e)}")
+        return False
+    return status_code == 200
+
+
 def get_user_id(request, token=None, opa_url=OPA_URL):
     """
     Returns the ID (key defined in .env as CANDIG_USER_KEY) associated with the user.
@@ -735,6 +745,8 @@ def get_user_in_opa(user_name):
 
 def get_self_in_opa(token):
     user_name = get_user_id(None, token=token)
+    if user_name is None:
+        return {"error": "User token is not valid"}, 404
     response, status_code = get_user_in_opa(user_name)
     return response, status_code
 
