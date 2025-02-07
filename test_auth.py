@@ -92,6 +92,17 @@ def test_site_admin():
         warnings.warn(UserWarning("OPA_URL is not set"))
 
 
+def test_is_user_candig_authorized():
+    """
+    If OPA is present, check to see if SITE_ADMIN_USER is a CanDIG-authorized user. Otherwise, just assert True.
+    """
+    if OPA_URL is not None:
+        print(f"{OPA_URL} {OPA_SECRET}")
+        assert src.authx.auth.is_user_candig_authorized(FakeRequest(site_admin=True))
+    else:
+        warnings.warn(UserWarning("OPA_URL is not set"))
+
+
 def test_user_email():
         """
         If OPA is present, check to see that the user's email is returned.
