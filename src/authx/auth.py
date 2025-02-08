@@ -243,11 +243,12 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
 def is_user_candig_authorized(request, token=None):
     # if the user is in opa, they are CanDIG-authorized
     try:
-        response, status_code = get_self_in_opa(get_auth_token(request, token=token))
+        user_token = get_auth_token(request, token=token)
+        response, status_code = get_opa_permissions(bearer_token=get_auth_token(request, token=token))
     except Exception as e:
         logger.debug(f"raised exception {type(e)} {str(e)}")
         return False
-    return status_code == 200
+    return status_code == 200 and response["user_is_candig_authorized"]
 
 
 def get_user_id(request, token=None, opa_url=OPA_URL):
