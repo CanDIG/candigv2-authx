@@ -6,7 +6,6 @@ import base64
 import json
 import uuid
 import getpass
-import urllib
 from candigv2_logging.logging import CanDIGLogger
 
 
@@ -32,6 +31,11 @@ logger = CanDIGLogger(__file__)
 
 class CandigAuthError(Exception):
     pass
+
+
+if __name__ == "__main__":
+    print(get_access_token(
+        keycloak_url=KEYCLOAK_PUBLIC_URL))
 
 
 def get_auth_token(request, token=None):
@@ -135,6 +139,10 @@ def get_site_admin_token(refresh_token=None):
 
     return get_access_token(username=username, password=password, refresh_token=refresh_token)
 
+
+######
+# General authorization methods; can be used throughout CanDIG
+######
 
 def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     """
@@ -241,13 +249,13 @@ def is_action_allowed_for_program(token, method=None, path=None, program=None, o
 
 
 def is_user_candig_authorized(request, token=None):
-    # if the user is in opa, they are CanDIG-authorized
+    # check to see if user_is_candig_authorized is true in the opa permissions
     try:
-        response, status_code = get_self_in_opa(get_auth_token(request, token=token))
+        response, status_code = get_opa_permissions(bearer_token=get_auth_token(request, token=token))
     except Exception as e:
         logger.debug(f"raised exception {type(e)} {str(e)}")
         return False
-    return status_code == 200
+    return status_code == 200 and response["user_is_candig_authorized"]
 
 
 def get_user_id(request, token=None, opa_url=OPA_URL):
@@ -284,6 +292,178 @@ def get_user_email(request, opa_url=OPA_URL, admin_secret=None):
     """
     return get_user_id(request, opa_url=opa_url)
 
+
+######
+# Vault service stores. Call these from within containers.
+######
+
+def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
+    """
+    Get this service's vault token. Should only be called from inside a container.
+    """
+    # if there is no SERVICE_NAME env var, something is wrong
+    if service is None:
+        raise CandigAuthError("no SERVICE_NAME specified")
+    # in CanDIGv2 docker stack, approle token should have been passed in
+    if approle_token is None:
+        with open(APPROLE_TOKEN_FILE) as f:
+            approle_token = f.read().strip()
+    if approle_token is None:
+        raise CandigAuthError("no approle token found")
+
+    # in CanDIGv2 docker stack, roleid should have been passed in
+    if role_id is None:
+        try:
+            with open(ROLE_ID_FILE) as f:
+                role_id = f.read().strip()
+        except Exception as e:
+            raise CandigAuthError(str(e))
+    if role_id is None:
+        raise CandigAuthError("no role_id found")
+
+    # get the secret_id
+    if secret_id is None:
+        url = f"{vault_url}/v1/auth/approle/role/{service}/secret-id"
+        headers = { "X-Vault-Token": approle_token }
+        response = requests.post(url=url, headers=headers)
+        if response.status_code == 200:
+            secret_id = response.json()["data"]["secret_id"]
+        else:
+            raise CandigAuthError(f"secret_id: {response.text}")
+
+        # swap the role_id and service_id for a token
+        data = {
+            "role_id": role_id,
+            "secret_id": secret_id
+        }
+        url = f"{vault_url}/v1/auth/approle/login"
+        response = requests.post(url, json=data)
+        if response.status_code == 200:
+            return response.json()["auth"]["client_token"]
+        else:
+            raise CandigAuthError(f"login: {response.text}")
+    return None
+
+
+def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    """
+    Set a Vault service store secret. Should only be called from inside a container.
+    """
+    if token is None:
+        try:
+            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        except Exception as e:
+            return {"error": str(e)}, 500
+    if token is None:
+        return {"error": f"could not obtain token for {service}"}, 400
+    if key is None:
+        return {"error": "no key specified"}, 400
+
+    headers = {
+        "X-Vault-Token": token
+    }
+    url = f"{vault_url}/v1/{service}/{key}"
+    print(f"storing secret of type {str(type(value))}")
+    if ("json" in str(type(value))):
+        print("converting json to string")
+        value = json.dumps(value)
+    response = requests.post(url, headers=headers, data=value)
+    if response.status_code >= 200 and response.status_code < 300:
+        return get_service_store_secret(service, key, token=token)
+    return response.json(), response.status_code
+
+
+def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    """
+    Get a Vault service store secret. Should only be called from inside a container.
+    """
+    if token is None:
+        try:
+            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        except Exception as e:
+            return {"error": str(e)}, 500
+    if token is None:
+        return {"error": f"could not obtain token for {service}"}, 400
+    if key is None:
+        return {"error": "no key specified"}, 400
+
+    headers = {
+        "X-Vault-Token": token
+    }
+    url = f"{vault_url}/v1/{service}/{key}"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        result = response.json()["data"]
+        return result, 200
+    return {"error": response.text}, response.status_code
+
+
+def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+    """
+    Delete a Vault service store secret. Should only be called from inside a container.
+    """
+    if token is None:
+        try:
+            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
+        except Exception as e:
+            return {"error": str(e)}, 500
+    if token is None:
+        return {"error": f"could not obtain token for {service}"}, 400
+    if key is None:
+        return {"error": "no key specified"}, 400
+
+    headers = {
+        "X-Vault-Token": token
+    }
+    url = f"{vault_url}/v1/{service}/{key}"
+    response = requests.delete(url, headers=headers)
+    return response.text, response.status_code
+
+
+def create_service_token(vault_url=VAULT_URL):
+    """
+    Create a token that can be used to verify this service. Should only be called from inside a container.
+    """
+
+    if SERVICE_NAME is None:
+        raise CandigAuthError("No SERVICE_NAME specified. Was this called from a CanDIG docker container?")
+    # create the random token:
+    token = uuid.uuid1()
+    try:
+        response, status_code = set_service_store_secret(SERVICE_NAME, key=f"token/{token}", value={"token": token})
+        if status_code != 200:
+            raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {response}")
+    except Exception as e:
+        raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {str(e)}")
+    return str(token)
+
+
+def verify_service_token(service=None, token=None):
+    """
+    Verify that a token comes from a particular service. Should only be called from inside a container.
+    """
+    if service is None:
+        return False
+    if token is None:
+        return False
+    body = {
+        "input": {
+            "service": service,
+            "token": token
+        }
+    }
+
+    response = requests.post(
+        OPA_URL + "/v1/data/service/verified",
+        json=body
+    )
+
+    return response.status_code == 200 and "result" in response.json() and response.json()["result"]
+
+
+#####
+# S3/Minio: Executing service must be authorized to access candig-ingest's `/aws` Vault secret path
+#####
 
 def get_aws_credential(endpoint=None, bucket=None, vault_url=VAULT_URL):
     """
@@ -458,10 +638,9 @@ def get_s3_url(s3_endpoint=None, bucket=None, object_id=None, access_key=None, s
     return {"metadata": result, "url": url}, 200
 
 
-if __name__ == "__main__":
-    print(get_access_token(
-        keycloak_url=KEYCLOAK_PUBLIC_URL))
-
+######
+# Administrative methods between services: most services will not use these directly
+######
 
 def decode_verify_token(token, issuer):
     # the token is a valid CanDIG token from the new server: it contains its issuer and audience
@@ -607,492 +786,3 @@ def remove_provider_from_opa(issuer, test_key=None):
     else:
         raise CandigAuthError("couldn't get data from opa store")
     return response["keys"]
-
-def get_program_in_opa(program_id):
-    """
-    Returns a ProgramAuthorization for the program_id
-    Authorized only if the service requesting it is allowed to see Opa's vault secrets.
-    """
-    response, status_code = get_service_store_secret("opa", key=f"programs/{program_id}")
-    if status_code < 300:
-        return response[program_id], status_code
-    return {"message": f"{program_id} not found"}, status_code
-
-
-def list_programs_in_opa():
-    progs_response, status_code = get_service_store_secret("opa", key="programs")
-    if status_code == 200:
-        return progs_response['programs'], status_code
-    return progs_response, status_code
-
-
-def add_program_to_opa(program_auth):
-    """
-    Creates or updates a ProgramAuthorization in Opa for the program_id.
-    Authorized only if the requesting service is allowed to write Opa's vault secrets.
-    """
-    program_id = program_auth["program_id"]
-    response, status_code = get_program_in_opa(program_id)
-    if status_code < 300 or status_code == 404:
-        # create or update the program itself
-        if "date_created" not in program_auth:
-            from datetime import datetime
-            program_auth["date_created"] = datetime.today().strftime('%Y-%m-%d')
-        response, status_code = set_service_store_secret("opa", key=f"programs/{program_id}", value=json.dumps({program_id: program_auth}))
-        if status_code < 300:
-            # update the values for the program list
-            response2, status_code = get_service_store_secret("opa", key="programs")
-
-            if status_code == 200:
-                # check to see if it's already here:
-                if program_id not in response2['programs']:
-                    response2['programs'].append(program_id)
-            else:
-                response2 = {'programs': [program_id]}
-            response2, status_code = set_service_store_secret("opa", key="programs", value=json.dumps(response2))
-            return response, status_code
-
-    # add the users to the preapproved user list
-    for user_id in program_auth["team_members"]:
-        # if the user isn't already approved, make sure they will be:
-        response, status_code = add_preapproved_user_in_opa(user_id)
-    for user_id in program_auth["program_curators"]:
-        # if the user isn't already approved, make sure they will be:
-        response, status_code = add_preapproved_user_in_opa(user_id)
-
-    return {"message": f"{program_id} not added"}, status_code
-
-
-def remove_program_from_opa(program_id):
-    """
-    Removes the ProgramAuthorization in Opa for the program_id.
-    Authorized only if the requesting service is allowed to write Opa's vault secrets.
-    """
-    response, status_code = get_program_in_opa(program_id)
-    if status_code == 404:
-        return response, status_code
-    if status_code < 300:
-        # create or update the program itself
-        response, status_code = delete_service_store_secret("opa", key=f"programs/{program_id}")
-
-        # update the values for the program list
-        response, status_code = get_service_store_secret("opa", key="programs")
-
-        if status_code == 200:
-            # check to see if it's here:
-            if program_id in response['programs']:
-                response['programs'].remove(program_id)
-                response, status_code = set_service_store_secret("opa", key="programs", value=json.dumps(response))
-
-        return {"success": f"{program_id} removed"}, status_code
-    return {"message": f"{program_id} not removed"}, status_code
-
-
-#####
-# Site roles
-#####
-
-def list_role_types_in_opa():
-    result, status_code = get_service_store_secret("opa", key=f"site_roles")
-    if status_code == 200:
-        return list(result['site_roles'].keys()), 200
-    return result, status_code
-
-
-def get_role_type_in_opa(role_type):
-    result, status_code = get_service_store_secret("opa", key=f"site_roles")
-    if status_code == 200:
-        if role_type in list(result['site_roles'].keys()):
-            return {role_type: result['site_roles'][role_type]}, 200
-        return {"error": f"role type {role_type} does not exist"}, 404
-    return result, status_code
-
-
-def set_role_type_in_opa(role_type, members):
-    result, status_code = get_service_store_secret("opa", key=f"site_roles")
-    if status_code == 200:
-        if role_type in result['site_roles']:
-            for user_id in members:
-                # if the user isn't already approved, make sure they will be:
-                response, status_code = add_preapproved_user_in_opa(user_id)
-
-            result['site_roles'][role_type] = members
-            result, status_code = set_service_store_secret("opa", key=f"site_roles", value=json.dumps(result))
-            if status_code == 200:
-                return result['site_roles'][role_type], status_code
-        return {"error": f"role type {role_type} does not exist"}, 404
-    return result, status_code
-
-
-#####
-# DAC authorization for users
-#####
-
-def write_user_in_opa(user_dict):
-    safe_name = urllib.parse.quote_plus(user_dict['userinfo']['user_name'])
-    response, status_code = set_service_store_secret("opa", key=f"users/{safe_name}", value=json.dumps(user_dict))
-    return response, status_code
-
-
-def get_user_in_opa(user_name):
-    safe_name = urllib.parse.quote_plus(user_name)
-    response, status_code = get_service_store_secret("opa", key=f"users/{safe_name}")
-    # return 404 if the user is not found
-    if status_code == 404:
-        response = {"error": f"User {user_name} is not an authorized CanDIG user"}
-    return response, status_code
-
-
-def get_self_in_opa(token):
-    user_name = get_user_id(None, token=token)
-    if user_name is None:
-        return {"error": "User token is not valid"}, 404
-    response, status_code = get_user_in_opa(user_name)
-    return response, status_code
-
-
-def remove_user_from_opa(user_name):
-    safe_name = urllib.parse.quote_plus(user_name)
-    response, status_code = delete_service_store_secret("opa", key=f"users/{safe_name}")
-
-    # if the user was preapproved, take them out of that list
-    remove_preapproved_user_in_opa(user_name)
-
-    # remove the user from any site roles:
-    site_roles, status_code = list_role_types_in_opa()
-    for role_type in site_roles:
-        members, status_code = get_role_type_in_opa(role_type)
-        if user_name in members:
-            members.remove(user_name)
-            set_role_type_in_opa(role_type, members)
-
-    # remove the user from any program roles:
-    programs, status_code = list_programs_in_opa()
-    for program_id in programs:
-        program, status_code = get_program_in_opa(program_id)
-        if user_name in program["program_curators"]:
-            program["program_curators"].remove(user_name)
-        if user_name in program["team_members"]:
-            program["team_members"].remove(user_name)
-        add_program_to_opa(program)
-
-    return response, status_code
-
-
-#####
-# Pending user authorizations
-#####
-
-def add_pending_user_to_opa(user_token):
-    # NB: any user that has been authenticated by the IDP should be able to add themselves to the pending user list
-    response, status_code = get_service_store_secret("opa", key=f"pending_users")
-    if status_code != 200:
-        return response, status_code
-
-    user_name = get_user_id(None, token=user_token)
-    if user_name is None:
-        return {"error": "Could not verify jwt or obtain user ID"}, 403
-
-    user, status_code = get_user_in_opa(user_name)
-    if status_code != 404:
-        return {"message": f"User {user_name} is already a CanDIG authorized user"}, 200
-    user_dict = {
-        "userinfo": {
-            "user_name": user_name,
-            "sample_jwt": user_token
-        }
-    }
-    if user_name not in response["pending_users"]:
-        response["pending_users"][user_name] = user_dict
-
-        response, status_code = set_service_store_secret("opa", key=f"pending_users", value=json.dumps(response))
-
-        if status_code == 200:
-            preapproved_users, status_code = list_preapproved_users_in_opa()
-            if status_code == 200:
-                if user_name in preapproved_users:
-                    return approve_pending_user_in_opa(user_name)
-            return response, 201 # return 201 to indicate that the user was added to the list
-    else:
-        # return 200 to indicate OK but nothing was added
-        return {"message": f"User {user_name} already pending"}, 200
-    return response, status_code
-
-
-def list_pending_users_in_opa():
-    response, status_code = get_service_store_secret("opa", key=f"pending_users")
-    if status_code == 200:
-        response = list(response["pending_users"].keys())
-    return response, status_code
-
-
-def is_user_pending(token):
-    response, status_code = get_service_store_secret("opa", key=f"pending_users")
-    if status_code == 200:
-        user_name = get_user_id(None, token=token)
-        response = user_name in response["pending_users"]
-    else:
-        response = False
-    return response, status_code
-
-
-def approve_pending_user_in_opa(user_name):
-    response, status_code = get_service_store_secret("opa", key=f"pending_users")
-    if status_code != 200:
-        return response, status_code
-    pending_users = response["pending_users"]
-    if user_name in pending_users:
-        user_dict = pending_users[user_name]
-        user_dict["dac_authorizations"] = {}
-        response2, status_code = write_user_in_opa(user_dict)
-        if status_code == 200:
-            pending_users.pop(user_name)
-            response3, status_code = set_service_store_secret("opa", key=f"pending_users", value=json.dumps(response))
-            return {"message": f"User {user_name} has been approved"}, status_code
-        return response2, status_code
-    else:
-        return {"error": f"no pending user with ID {user_name}"}, 404
-
-
-def reject_pending_user_in_opa(user_name):
-    response, status_code = get_service_store_secret("opa", key=f"pending_users")
-    if status_code != 200:
-        return response, status_code
-    pending_users = response["pending_users"]
-
-    if user_name in pending_users:
-        pending_users.pop(user_name)
-        response, status_code = set_service_store_secret("opa", key=f"pending_users", value=json.dumps({"pending_users": pending_users}))
-
-    else:
-        return {"error": f"no pending user with ID {user_name}"}, 404
-    return response, status_code
-
-
-def clear_pending_users_in_opa():
-    response, status_code = set_service_store_secret("opa", key="pending_users", value=json.dumps({"pending_users": {}}))
-    return response, status_code
-
-
-#####
-# Preapproved user authorizations
-#####
-
-def list_preapproved_users_in_opa():
-    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
-    if status_code == 200:
-        response = response["preapproved_users"]
-    return response, status_code
-
-
-def clear_preapproved_users_in_opa():
-    response, status_code = set_service_store_secret("opa", key="preapproved_users", value=json.dumps({"preapproved_users": []}))
-    return response, status_code
-
-
-def get_preapproved_user(user_name):
-    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
-    if status_code == 200:
-        response = user_name in response["preapproved_users"]
-    else:
-        response = False
-    return response, status_code
-
-
-def add_preapproved_user_in_opa(user_name):
-    logger.debug(f"adding preapproved user {user_name}")
-    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
-
-    if user_name in response["preapproved_users"]:
-        # return 200 to indicate OK but nothing was added
-        return {"message": f"User {user_name} already preapproved"}, 200
-
-    response["preapproved_users"].append(user_name)
-
-    response, status_code = set_service_store_secret("opa", key=f"preapproved_users", value=json.dumps(response))
-    if status_code == 200:
-        return response, 201 # 201 created, to indicate that we added the user
-    return response, status_code
-
-
-def remove_preapproved_user_in_opa(user_name):
-    response, status_code = get_service_store_secret("opa", key=f"preapproved_users")
-    if status_code != 200:
-        return response, status_code
-    preapproved_users = response["preapproved_users"]
-
-    if user_name in preapproved_users:
-        preapproved_users.remove(user_name)
-        response, status_code = set_service_store_secret("opa", key=f"preapproved_users", value=json.dumps({"preapproved_users": preapproved_users}))
-
-    else:
-        return {"error": f"no preapproved user with ID {user_name}"}, 404
-    return response, status_code
-
-
-######
-# Vault service stores
-######
-
-def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, approle_token=None, role_id=None, secret_id=None):
-    """
-    Get this service's vault token. Should only be called from inside a container.
-    """
-    # if there is no SERVICE_NAME env var, something is wrong
-    if service is None:
-        raise CandigAuthError("no SERVICE_NAME specified")
-    # in CanDIGv2 docker stack, approle token should have been passed in
-    if approle_token is None:
-        with open(APPROLE_TOKEN_FILE) as f:
-            approle_token = f.read().strip()
-    if approle_token is None:
-        raise CandigAuthError("no approle token found")
-
-    # in CanDIGv2 docker stack, roleid should have been passed in
-    if role_id is None:
-        try:
-            with open(ROLE_ID_FILE) as f:
-                role_id = f.read().strip()
-        except Exception as e:
-            raise CandigAuthError(str(e))
-    if role_id is None:
-        raise CandigAuthError("no role_id found")
-
-    # get the secret_id
-    if secret_id is None:
-        url = f"{vault_url}/v1/auth/approle/role/{service}/secret-id"
-        headers = { "X-Vault-Token": approle_token }
-        response = requests.post(url=url, headers=headers)
-        if response.status_code == 200:
-            secret_id = response.json()["data"]["secret_id"]
-        else:
-            raise CandigAuthError(f"secret_id: {response.text}")
-
-        # swap the role_id and service_id for a token
-        data = {
-            "role_id": role_id,
-            "secret_id": secret_id
-        }
-        url = f"{vault_url}/v1/auth/approle/login"
-        response = requests.post(url, json=data)
-        if response.status_code == 200:
-            return response.json()["auth"]["client_token"]
-        else:
-            raise CandigAuthError(f"login: {response.text}")
-    return None
-
-
-def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
-    """
-    Set a Vault service store secret. Should only be called from inside a container.
-    """
-    if token is None:
-        try:
-            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
-        except Exception as e:
-            return {"error": str(e)}, 500
-    if token is None:
-        return {"error": f"could not obtain token for {service}"}, 400
-    if key is None:
-        return {"error": "no key specified"}, 400
-
-    headers = {
-        "X-Vault-Token": token
-    }
-    url = f"{vault_url}/v1/{service}/{key}"
-    print(f"storing secret of type {str(type(value))}")
-    if ("json" in str(type(value))):
-        print("converting json to string")
-        value = json.dumps(value)
-    response = requests.post(url, headers=headers, data=value)
-    if response.status_code >= 200 and response.status_code < 300:
-        return get_service_store_secret(service, key, token=token)
-    return response.json(), response.status_code
-
-
-def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
-    """
-    Get a Vault service store secret. Should only be called from inside a container.
-    """
-    if token is None:
-        try:
-            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
-        except Exception as e:
-            return {"error": str(e)}, 500
-    if token is None:
-        return {"error": f"could not obtain token for {service}"}, 400
-    if key is None:
-        return {"error": "no key specified"}, 400
-
-    headers = {
-        "X-Vault-Token": token
-    }
-    url = f"{vault_url}/v1/{service}/{key}"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        result = response.json()["data"]
-        return result, 200
-    return {"error": response.text}, response.status_code
-
-
-def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
-    """
-    Delete a Vault service store secret. Should only be called from inside a container.
-    """
-    if token is None:
-        try:
-            token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
-        except Exception as e:
-            return {"error": str(e)}, 500
-    if token is None:
-        return {"error": f"could not obtain token for {service}"}, 400
-    if key is None:
-        return {"error": "no key specified"}, 400
-
-    headers = {
-        "X-Vault-Token": token
-    }
-    url = f"{vault_url}/v1/{service}/{key}"
-    response = requests.delete(url, headers=headers)
-    return response.text, response.status_code
-
-
-def create_service_token(vault_url=VAULT_URL):
-    """
-    Create a token that can be used to verify this service. Should only be called from inside a container.
-    """
-
-    if SERVICE_NAME is None:
-        raise CandigAuthError("No SERVICE_NAME specified. Was this called from a CanDIG docker container?")
-    # create the random token:
-    token = uuid.uuid1()
-    try:
-        response, status_code = set_service_store_secret(SERVICE_NAME, key=f"token/{token}", value={"token": token})
-        if status_code != 200:
-            raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {response}")
-    except Exception as e:
-        raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {str(e)}")
-    return str(token)
-
-
-def verify_service_token(service=None, token=None):
-    """
-    Verify that a token comes from a particular service. Should only be called from inside a container.
-    """
-    if service is None:
-        return False
-    if token is None:
-        return False
-    body = {
-        "input": {
-            "service": service,
-            "token": token
-        }
-    }
-
-    response = requests.post(
-        OPA_URL + "/v1/data/service/verified",
-        json=body
-    )
-
-    return response.status_code == 200 and "result" in response.json() and response.json()["result"]
