@@ -92,7 +92,7 @@ def get_oauth_response(
 
     url = keycloak_realm_url
     if url is None:
-        url = f"{keycloak_url}/auth/realms/{keycloak_realm}"
+        url = f"{keycloak_url}/realms/{keycloak_realm}"
     response = requests.post(f"{url}/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()
