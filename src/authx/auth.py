@@ -20,6 +20,8 @@ SERVICE_NAME = os.getenv("SERVICE_NAME")
 CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 APPROLE_TOKEN_FILE = os.getenv("APPROLE_TOKEN_FILE", "/home/candig/approle-token")
 ROLE_ID_FILE = os.getenv("ROLE_ID_FILE", "/home/candig/roleid")
+KEYCLOAK_AUTH_PREFIX = os.getenv("KEYCLOAK_AUTH_PREFIX", "/auth")
+CLOCK_SKEW_LEEWAY = os.getenv("CLOCK_SKEW_LEEWAY", 60)
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -49,7 +51,7 @@ def get_auth_token(request, token=None):
     if token is None:
         return None
 
-    data = jwt.decode(token, options={"verify_signature": False})
+    data = jwt.decode(token, options={"verify_signature": False}, leeway=CLOCK_SKEW_LEEWAY)
     if data["typ"] == "Refresh":
         return get_access_token(refresh_token=token)
     return token
@@ -644,7 +646,7 @@ def get_s3_url(s3_endpoint=None, bucket=None, object_id=None, access_key=None, s
 
 def decode_verify_token(token, issuer):
     # the token is a valid CanDIG token from the new server: it contains its issuer and audience
-    data = jwt.decode(token, options={"verify_signature": False})
+    data = jwt.decode(token, options={"verify_signature": False}, leeway=CLOCK_SKEW_LEEWAY)
     if data['iss'] != issuer:
         raise CandigAuthError(f"The token's iss ({data['iss']}) does not match the issuer ({issuer})")
 
@@ -660,7 +662,8 @@ def decode_verify_token(token, issuer):
             signing_key.key,
             algorithms=["RS256"],
             audience=data['azp'],
-            options={'verify_exp': False}
+            options={'verify_exp': False},
+            leeway=CLOCK_SKEW_LEEWAY
         )
         return data
     return None
