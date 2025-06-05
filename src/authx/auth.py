@@ -708,7 +708,7 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
         api_json = response.json()
-        new_providers = [api_json['openid_options']['providers'].pop()]
+        new_providers = [api_json['openid_options']['providers'].pop(0)]
         for p in api_json['openid_options']['providers']:
             if issuer not in p['issuer']:
                 new_providers.append(p)
