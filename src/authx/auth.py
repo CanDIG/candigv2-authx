@@ -675,7 +675,7 @@ def decode_token(token, issuer):
     return data
 
 
-def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
+def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID, id=None):
     jwt = decode_token(token, issuer)
     client_id_64 = base64.b64encode(bytes(jwt['azp'], 'utf-8')).decode('utf-8')
     new_provider = {
@@ -684,6 +684,8 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             client_id_64: policy_id
         }
     }
+    if id is not None:
+        new_provider["id"] = id
     url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
     headers = { "x-tyk-authorization": TYK_SECRET_KEY }
     response = requests.request("GET", url, headers=headers)
