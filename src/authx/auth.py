@@ -692,15 +692,11 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID, id=N
     if response.status_code == 200:
         api_json = response.json()
         # check to see if it's already here:
-        found = False
         for i in range(0, len(api_json['openid_options']['providers'])):
             s = api_json['openid_options']['providers'][i]
             if json.dumps(s, sort_keys=True) == json.dumps(new_provider, sort_keys=True):
-                found = True
-                api_json['openid_options']['providers'][i] = new_provider
-                break
-        if not found:
-            api_json['openid_options']['providers'].append(new_provider)
+                raise CandigAuthError(f"Provider already in Tyk api {api_id}")
+        api_json['openid_options']['providers'].append(new_provider)
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
             response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
