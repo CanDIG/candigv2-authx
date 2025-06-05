@@ -666,8 +666,17 @@ def decode_verify_token(token, issuer):
     return None
 
 
+def decode_token(token, issuer):
+    # the token is a valid CanDIG token from the new server: it contains its issuer and audience
+    data = jwt.decode(token, options={"verify_signature": False})
+    if data['iss'] != issuer:
+        raise CandigAuthError(f"The token's iss ({data['iss']}) does not match the issuer ({issuer})")
+
+    return data
+
+
 def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
-    jwt = decode_verify_token(token, issuer)
+    jwt = decode_token(token, issuer)
     client_id_64 = base64.b64encode(bytes(jwt['azp'], 'utf-8')).decode('utf-8')
     new_provider = {
         "issuer": jwt['iss'],
@@ -722,7 +731,7 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
 
 def add_provider_to_opa(token, issuer, test_key=None):
     new_provider = None
-    jwt = decode_verify_token(token, issuer)
+    jwt = decode_token(token, issuer)
     jwks_response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
     if jwks_response.status_code == 200:
         jwks_response = requests.get(jwks_response.json()["jwks_uri"])
