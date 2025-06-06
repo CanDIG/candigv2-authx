@@ -689,8 +689,7 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
         api_json = response.json()
-        # check to see if it's already here (but not the first one; that's our own provider):
-        for i in range(1, len(api_json['openid_options']['providers'])):
+        for i in range(0, len(api_json['openid_options']['providers'])):
             s = api_json['openid_options']['providers'][i]
             if json.dumps(s, sort_keys=True) == json.dumps(new_provider, sort_keys=True):
                 raise CandigAuthError(f"Provider already in Tyk api {api_id}")
@@ -708,6 +707,7 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
         api_json = response.json()
+        # always keep the first one: that's our own provider:
         new_providers = [api_json['openid_options']['providers'].pop(0)]
         for p in api_json['openid_options']['providers']:
             if issuer not in p['issuer']:
