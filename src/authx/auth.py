@@ -20,6 +20,7 @@ SERVICE_NAME = os.getenv("SERVICE_NAME")
 CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 APPROLE_TOKEN_FILE = os.getenv("APPROLE_TOKEN_FILE", "/home/candig/approle-token")
 ROLE_ID_FILE = os.getenv("ROLE_ID_FILE", "/home/candig/roleid")
+KEYCLOAK_AUTH_PREFIX = os.getenv("KEYCLOAK_AUTH_PREFIX", "/auth")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -59,6 +60,7 @@ def get_oauth_response(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     keycloak_realm=KEYCLOAK_REALM,
     keycloak_realm_url=None,
+    auth_prefix=KEYCLOAK_AUTH_PREFIX,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
@@ -92,7 +94,7 @@ def get_oauth_response(
 
     url = keycloak_realm_url
     if url is None:
-        url = f"{keycloak_url}/auth/realms/{keycloak_realm}"
+        url = f"{keycloak_url}{auth_prefix}/realms/{keycloak_realm}"
     response = requests.post(f"{url}/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()
@@ -102,6 +104,7 @@ def get_oauth_response(
 
 def get_access_token(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
+    auth_prefix=KEYCLOAK_AUTH_PREFIX,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
@@ -120,6 +123,7 @@ def get_access_token(
 
     result = get_oauth_response(
         keycloak_url=keycloak_url,
+        auth_prefix=auth_prefix,
         client_id=client_id,
         client_secret=client_secret,
         username=username,
