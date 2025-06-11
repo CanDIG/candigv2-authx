@@ -20,6 +20,7 @@ SERVICE_NAME = os.getenv("SERVICE_NAME")
 CANDIG_USER_KEY = os.getenv("CANDIG_USER_KEY", "email")
 APPROLE_TOKEN_FILE = os.getenv("APPROLE_TOKEN_FILE", "/home/candig/approle-token")
 ROLE_ID_FILE = os.getenv("ROLE_ID_FILE", "/home/candig/roleid")
+KEYCLOAK_AUTH_PREFIX = os.getenv("KEYCLOAK_AUTH_PREFIX", "/auth")
 
 ## Env vars for ingest and other site admin tasks:
 CLIENT_ID = os.getenv("CANDIG_CLIENT_ID", None)
@@ -59,6 +60,7 @@ def get_oauth_response(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
     keycloak_realm=KEYCLOAK_REALM,
     keycloak_realm_url=None,
+    auth_prefix=KEYCLOAK_AUTH_PREFIX,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
@@ -92,7 +94,7 @@ def get_oauth_response(
 
     url = keycloak_realm_url
     if url is None:
-        url = f"{keycloak_url}/auth/realms/{keycloak_realm}"
+        url = f"{keycloak_url}{auth_prefix}/realms/{keycloak_realm}"
     response = requests.post(f"{url}/protocol/openid-connect/token", data=payload)
     if response.status_code == 200:
         return response.json()
@@ -102,6 +104,7 @@ def get_oauth_response(
 
 def get_access_token(
     keycloak_url=KEYCLOAK_PUBLIC_URL,
+    auth_prefix=KEYCLOAK_AUTH_PREFIX,
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
     username=None,
@@ -120,6 +123,7 @@ def get_access_token(
 
     result = get_oauth_response(
         keycloak_url=keycloak_url,
+        auth_prefix=auth_prefix,
         client_id=client_id,
         client_secret=client_secret,
         username=username,
@@ -666,8 +670,17 @@ def decode_verify_token(token, issuer):
     return None
 
 
+def decode_token(token, issuer):
+    # the token is a valid CanDIG token from the new server: it contains its issuer and audience
+    data = jwt.decode(token, options={"verify_signature": False})
+    if data['iss'] != issuer:
+        raise CandigAuthError(f"The token's iss ({data['iss']}) does not match the issuer ({issuer})")
+
+    return data
+
+
 def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
-    jwt = decode_verify_token(token, issuer)
+    jwt = decode_token(token, issuer)
     client_id_64 = base64.b64encode(bytes(jwt['azp'], 'utf-8')).decode('utf-8')
     new_provider = {
         "issuer": jwt['iss'],
@@ -680,16 +693,11 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
         api_json = response.json()
-        # check to see if it's already here:
-        found = False
         for i in range(0, len(api_json['openid_options']['providers'])):
             s = api_json['openid_options']['providers'][i]
             if json.dumps(s, sort_keys=True) == json.dumps(new_provider, sort_keys=True):
-                found = True
-                api_json['openid_options']['providers'][i] = new_provider
-                break
-        if not found:
-            api_json['openid_options']['providers'].append(new_provider)
+                return None
+        api_json['openid_options']['providers'].append(new_provider)
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
             response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
@@ -703,7 +711,8 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
     response = requests.request("GET", url, headers=headers)
     if response.status_code == 200:
         api_json = response.json()
-        new_providers = []
+        # always keep the first one: that's our own provider:
+        new_providers = [api_json['openid_options']['providers'].pop(0)]
         for p in api_json['openid_options']['providers']:
             if issuer not in p['issuer']:
                 new_providers.append(p)
@@ -722,7 +731,7 @@ def remove_provider_from_tyk_api(api_id, issuer, policy_id=TYK_POLICY_ID):
 
 def add_provider_to_opa(token, issuer, test_key=None):
     new_provider = None
-    jwt = decode_verify_token(token, issuer)
+    jwt = decode_token(token, issuer)
     jwks_response = requests.get(f"{jwt['iss']}/.well-known/openid-configuration")
     if jwks_response.status_code == 200:
         jwks_response = requests.get(jwks_response.json()["jwks_uri"])
