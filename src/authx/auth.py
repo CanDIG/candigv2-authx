@@ -178,11 +178,12 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         json=body
     )
 
-    # Test: what the heck is happening
-    logger.debug(f"response looks like: {response.json()}")
-
     # Ensure that the token is valid before continuing
-    if "result" in response.json() and "valid_token" in response.json()["result"] and not response.json()["result"]["valid_token"]:
+    # Note that there's two possible responses from OPA here: either a dictionary
+    # that looks like {'code': 'unauthorized', 'message': 'request rejected by administrative policy'}
+    # or one that looks like {"result":{"valid_token": false, ...} ...}
+    if "unauthorized" == response.json().get("code", "") or \
+        not response.json().get("result", {}).get("valid_token", True):
         raise Exception("Invalid token")
 
     if response.status_code == 200:
