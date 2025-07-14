@@ -184,7 +184,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     # or one that looks like {"result":{"valid_token": false, ...} ...}
     if "unauthorized" == response.json().get("code", "") or \
         not response.json().get("result", {}).get("valid_token", True):
-        raise Exception("Invalid token")
+        raise CandigAuthError("Invalid token")
 
     if response.status_code == 200:
         if "datasets" in response.json()["result"]:
