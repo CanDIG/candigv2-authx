@@ -177,6 +177,14 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         headers=headers,
         json=body
     )
+
+    # Test: what the heck is happening
+    logger.debug(f"response looks like: {response.json()}")
+
+    # Ensure that the token is valid before continuing
+    if "result" in response.json() and "valid_token" in response.json()["result"] and not response.json()["result"]["valid_token"]:
+        raise Exception("Invalid token")
+
     if response.status_code == 200:
         if "datasets" in response.json()["result"]:
             return response.json()["result"]["datasets"]
