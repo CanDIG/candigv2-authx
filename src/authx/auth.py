@@ -156,39 +156,23 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
 
     token = get_auth_token(request)
 
-    body = {
-        "input": {
-            "token": token,
-            "body": {
-                "method": request.method
-            }
-        }
-    }
     if hasattr(request, 'path'):
-        body["input"]["body"]["path"] = request.path
+        path = request.path
     elif hasattr(request, 'url'):
-        body["input"]["body"]["path"] = request.url
+        path = request.url
 
-    headers = {
-        "Authorization": f"Bearer {token}"
-    }
-    response = requests.post(
-        opa_url + "/v1/data/permissions",
-        headers=headers,
-        json=body
-    )
+    response, status_code = get_opa_permissions(bearer_token=token, method=request.method, path=path, program=None)
 
     # Ensure that the token is valid before continuing
     # Note that there's two possible responses from OPA here: either a dictionary
     # that looks like {'code': 'unauthorized', 'message': 'request rejected by administrative policy'}
     # or one that looks like {"result":{"valid_token": false, ...} ...}
-    if "unauthorized" == response.json().get("code", "") or \
-        not response.json().get("result", {}).get("valid_token", True):
+    if status_code == 401 or not response.get("valid_token", True):
         raise CandigAuthError("Invalid token")
 
-    if response.status_code == 200:
-        if "datasets" in response.json()["result"]:
-            return response.json()["result"]["datasets"]
+    if status_code == 200:
+        if "datasets" in response:
+            return response["datasets"]
 
     return []
 
@@ -206,18 +190,11 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
     headers = {
         "Authorization": f"Bearer {token}"
     }
-    response = requests.post(
-        opa_url + "/v1/data/permissions",
-        headers=headers,
-        json={
-            "input": {
-                    "token": token
-                }
-            }
-        )
-    if response.status_code == 200:
-        if 'site_admin' in response.json()["result"]:
-            return response.json()["result"]["site_admin"]
+    response, status_code = get_opa_permissions(bearer_token=token)
+
+    if status_code == 200:
+        if 'site_admin' in response and "valid_token" in response and response["valid_token"]:
+            return response["site_admin"]
     return False
 
 
@@ -231,20 +208,24 @@ def get_opa_permissions(bearer_token=None, user_token=None, method=None, path=No
     headers = {
         "Authorization": f"Bearer {token}"
     }
+
+    input = {
+        "token": user_token,
+        "body": {}
+    }
+    if method is not None:
+        input["body"]["method"] = method
+    if path is not None:
+        input["body"]["path"] = path
+    if program is not None:
+        input["body"]["program"] = program
+
     response = requests.post(
         opa_url + "/v1/data/permissions",
         headers=headers,
-        json={
-            "input": {
-                    "token": user_token,
-                    "body": {
-                        "method": method,
-                        "path": path,
-                        "program": program
-                    }
-                }
-            }
-        )
+        json={"input": input}
+    )
+
     if response.status_code == 200:
         return response.json()["result"], 200
     return response.text, response.status_code
