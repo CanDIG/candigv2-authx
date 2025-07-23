@@ -161,7 +161,11 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     elif hasattr(request, 'url'):
         path = request.url
 
-    response, status_code = get_opa_permissions(bearer_token=token, method=request.method, path=path, program=None)
+    user_jwt = None
+    logger.debug(f"SFSDFSF {request.headers}")
+    if "x-user-jwt" in request.headers:
+        user_jwt = request.headers["x-user-jwt"]
+    response, status_code = get_opa_permissions(bearer_token=token, user_token=user_jwt,method=request.method, path=path, program=None)
 
     # Ensure that the token is valid before continuing
     # Note that there's two possible responses from OPA here: either a dictionary
@@ -199,27 +203,32 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
 
 
 def get_opa_permissions(bearer_token=None, user_token=None, method=None, path=None, program=None, opa_url=OPA_URL):
-    token = get_auth_token(None, token=bearer_token)
-    if user_token is None:
-        user_token = token
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
         return True
+    token = get_auth_token(None, token=bearer_token)
     headers = {
         "Authorization": f"Bearer {token}"
     }
 
     input = {
-        "token": user_token,
         "body": {}
     }
+    if user_token is None:
+        input["token"] = token
+    else:
+        input["token"] = user_token
+        input["foo"] = "foo"
+    if bearer_token is not None and user_token is not None:
+        input["token"] = token
+        input["body"]["user_jwt"] = user_token
     if method is not None:
         input["body"]["method"] = method
     if path is not None:
         input["body"]["path"] = path
     if program is not None:
         input["body"]["program"] = program
-
+    logger.debug(f"SFSDSO {input}")
     response = requests.post(
         opa_url + "/v1/data/permissions",
         headers=headers,
