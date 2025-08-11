@@ -65,7 +65,8 @@ def get_oauth_response(
     client_secret=CLIENT_SECRET,
     username=None,
     password=None,
-    refresh_token=None
+    refresh_token=None,
+    client_account=False
     ):
     """
     Gets a token from the keycloak server.
@@ -84,6 +85,8 @@ def get_oauth_response(
     if refresh_token is not None:
         payload["refresh_token"] = refresh_token
         payload["grant_type"] = "refresh_token"
+    elif client_account:
+        payload["grant_type"] = "client_credentials"
     else:
         if username is None or password is None:
             raise CandigAuthError("Username and password required for token")
