@@ -697,6 +697,7 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             client_id_64: policy_id
         }
     }
+    previous_provider = None
     url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
     headers = { "x-tyk-authorization": TYK_SECRET_KEY }
     response = requests.request("GET", url, headers=headers)
@@ -706,7 +707,17 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             s = api_json['openid_options']['providers'][i]
             if json.dumps(s, sort_keys=True) == json.dumps(new_provider, sort_keys=True):
                 return None
-        api_json['openid_options']['providers'].append(new_provider)
+
+            # If we have another provider with the same issuer, just add this client ID to it
+            # Note that if we instead added a second provider with the same issuer, it will not work
+            if s['issuer'] == jwt['iss']:
+                previous_provider = s
+                previous_provider['client_ids'][client_id_64] = policy_id
+                break
+
+        # Add a new provider if this issuer doesn't yet exist
+        if not previous_provider:
+            api_json['openid_options']['providers'].append(new_provider)
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
             response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
@@ -771,6 +782,7 @@ def add_provider_to_opa(token, issuer, test_key=None):
                             found = False # not the same because they have different test keys
                 if found:
                     # replace with the new provider data
+                    new_provider['aud'] = list(set(new_provider['aud']).union(set(s['aud'])))
                     response["keys"][i] = new_provider
                     break
         if not found:
