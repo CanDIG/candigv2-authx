@@ -782,6 +782,7 @@ def add_provider_to_opa(token, issuer, test_key=None):
                             found = False # not the same because they have different test keys
                 if found:
                     # replace with the new provider data
+                    new_provider['aud'] = list(set(new_provider['aud']).union(set(s['aud'])))
                     response["keys"][i] = new_provider
                     break
         if not found:
