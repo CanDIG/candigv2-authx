@@ -65,7 +65,8 @@ def get_oauth_response(
     client_secret=CLIENT_SECRET,
     username=None,
     password=None,
-    refresh_token=None
+    refresh_token=None,
+    client_account=False
     ):
     """
     Gets a token from the keycloak server.
@@ -84,6 +85,8 @@ def get_oauth_response(
     if refresh_token is not None:
         payload["refresh_token"] = refresh_token
         payload["grant_type"] = "refresh_token"
+    elif client_account:
+        payload["grant_type"] = "client_credentials"
     else:
         if username is None or password is None:
             raise CandigAuthError("Username and password required for token")
@@ -177,6 +180,15 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         headers=headers,
         json=body
     )
+
+    # Ensure that the token is valid before continuing
+    # Note that there's two possible responses from OPA here: either a dictionary
+    # that looks like {'code': 'unauthorized', 'message': 'request rejected by administrative policy'}
+    # or one that looks like {"result":{"valid_token": false, ...} ...}
+    if "unauthorized" == response.json().get("code", "") or \
+        not response.json().get("result", {}).get("valid_token", True):
+        raise CandigAuthError("Invalid token")
+
     if response.status_code == 200:
         if "datasets" in response.json()["result"]:
             return response.json()["result"]["datasets"]
@@ -688,6 +700,7 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             client_id_64: policy_id
         }
     }
+    previous_provider = None
     url = f"{TYK_LOGIN_TARGET_URL}/tyk/apis/{api_id}"
     headers = { "x-tyk-authorization": TYK_SECRET_KEY }
     response = requests.request("GET", url, headers=headers)
@@ -697,7 +710,17 @@ def add_provider_to_tyk_api(api_id, token, issuer, policy_id=TYK_POLICY_ID):
             s = api_json['openid_options']['providers'][i]
             if json.dumps(s, sort_keys=True) == json.dumps(new_provider, sort_keys=True):
                 return None
-        api_json['openid_options']['providers'].append(new_provider)
+
+            # If we have another provider with the same issuer, just add this client ID to it
+            # Note that if we instead added a second provider with the same issuer, it will not work
+            if s['issuer'] == jwt['iss']:
+                previous_provider = s
+                previous_provider['client_ids'][client_id_64] = policy_id
+                break
+
+        # Add a new provider if this issuer doesn't yet exist
+        if not previous_provider:
+            api_json['openid_options']['providers'].append(new_provider)
         response = requests.request("PUT", url, headers=headers, json=api_json)
         if response.status_code == 200:
             response = requests.request("GET", f"{TYK_LOGIN_TARGET_URL}/tyk/reload", params={"block": True}, headers=headers)
@@ -762,6 +785,7 @@ def add_provider_to_opa(token, issuer, test_key=None):
                             found = False # not the same because they have different test keys
                 if found:
                     # replace with the new provider data
+                    new_provider['aud'] = list(set(new_provider['aud']).union(set(s['aud'])))
                     response["keys"][i] = new_provider
                     break
         if not found:

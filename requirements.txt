@@ -1,4 +1,4 @@
-requests==2.32.2
+requests==2.32.4
 minio==7.2.12
 pytest==8.3.3
 PyJWT==2.6.0
