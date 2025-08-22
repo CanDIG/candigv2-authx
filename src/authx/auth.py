@@ -168,9 +168,9 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         }
     }
     if hasattr(request, 'path'):
-        body["input"]["body"]["path"] = request.path
+        body["input"]["body"]["path"] = str(request.path)
     elif hasattr(request, 'url'):
-        body["input"]["body"]["path"] = request.url
+        body["input"]["body"]["path"] = str(request.url)
 
     headers = {
         "Authorization": f"Bearer {token}"
@@ -180,6 +180,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
         headers=headers,
         json=body
     )
+    logger.debug("HOLA 3")
 
     # Ensure that the token is valid before continuing
     # Note that there's two possible responses from OPA here: either a dictionary
@@ -188,6 +189,7 @@ def get_opa_datasets(request, opa_url=OPA_URL, admin_secret=None):
     if "unauthorized" == response.json().get("code", "") or \
         not response.json().get("result", {}).get("valid_token", True):
         raise CandigAuthError("Invalid token")
+    logger.debug(f"HOLA {response.text}")
 
     if response.status_code == 200:
         if "datasets" in response.json()["result"]:
