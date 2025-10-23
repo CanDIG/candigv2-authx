@@ -226,7 +226,7 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
 
 def get_opa_permissions(bearer_token=None, user_token=None, method=None, path=None, program=None, user_key=None, opa_url=OPA_URL):
     token = get_auth_token(None, token=bearer_token)
-    if user_token is None:
+    if user_token is None and user_key is None:
         user_token = token
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
