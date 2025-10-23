@@ -224,9 +224,9 @@ def is_site_admin(request, token=None, opa_url=OPA_URL, admin_secret=None):
     return False
 
 
-def get_opa_permissions(bearer_token=None, user_token=None, method=None, path=None, program=None, opa_url=OPA_URL):
+def get_opa_permissions(bearer_token=None, user_token=None, method=None, path=None, program=None, user_key=None, opa_url=OPA_URL):
     token = get_auth_token(None, token=bearer_token)
-    if user_token is None:
+    if user_token is None and user_key is None:
         user_token = token
     if opa_url is None:
         print("WARNING: AUTHORIZATION IS DISABLED; OPA_URL is not present")
@@ -234,20 +234,23 @@ def get_opa_permissions(bearer_token=None, user_token=None, method=None, path=No
     headers = {
         "Authorization": f"Bearer {token}"
     }
+    body = {
+        "input": {
+            "token": user_token,
+            "body": {
+                "method": method,
+                "path": path,
+                "program": program
+            }
+        }
+    }
+    if user_key is not None:
+        body["input"]["body"]["user_key"] = user_key
     response = requests.post(
         opa_url + "/v1/data/permissions",
         headers=headers,
-        json={
-            "input": {
-                    "token": user_token,
-                    "body": {
-                        "method": method,
-                        "path": path,
-                        "program": program
-                    }
-                }
-            }
-        )
+        json=body
+    )
     if response.status_code == 200:
         return response.json()["result"], 200
     return response.text, response.status_code
