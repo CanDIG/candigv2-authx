@@ -7,7 +7,7 @@ version = "v2.8.6"
 name = "candigv2_authx"
 dependencies = [
     "requests>=2.32.2",
-    "minio==7.2.18",
+    "minio>=7.2.19",
     "pytest>=8.3.3",
     "PyJWT>=2.6.0",
     "cryptography>=43.0.1"

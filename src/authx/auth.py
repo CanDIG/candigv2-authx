@@ -630,7 +630,9 @@ def get_minio_client(token=None, s3_endpoint=None, bucket=None, access_key=None,
             secure = secure
         )
 
-    if not client.bucket_exists(bucket):
+    # if not client.bucket_exists(bucket):
+    # client.bucket_exists(bucket_name="my-bucket"):
+    if not client.bucket_exists(bucket_name=bucket):
         raise CandigAuthError(f"bucket {bucket} does not exist at {url}")
 
     return {
