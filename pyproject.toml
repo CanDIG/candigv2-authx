@@ -3,11 +3,11 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-version = "v2.8.6"
+version = "v2.8.7"
 name = "candigv2_authx"
 dependencies = [
     "requests>=2.32.2",
-    "minio>=7.2.12",
+    "minio>=7.2.19",
     "pytest>=8.3.3",
     "PyJWT>=2.6.0",
     "cryptography>=43.0.1"
