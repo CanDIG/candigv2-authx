@@ -365,7 +365,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
     return None
 
 
-def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None, redact_regex=r"", redact_with=""):
     """
     Set a Vault service store secret. Should only be called from inside a container.
     """
@@ -387,7 +387,7 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
         value = json.dumps(value)
     response = requests.post(url, headers=headers, data=value)
     if response.status_code >= 200 and response.status_code < 300:
-        logger.info(f"Store secret '{key}' for service {service}: {response.status_code}")
+        logger.info(f"Store secret '{re.sub(redact_regex, redact_with, key)}' for service {service}: {response.status_code}")
         return get_service_store_secret(service, key, token=token)
     logger.info(f"FAILED to store secret '{key}' for service {service}: {response.status_code} {response.text}")
     return response.json(), response.status_code
@@ -453,7 +453,7 @@ def create_service_token(vault_url=VAULT_URL):
     # create the random token:
     token = uuid.uuid1()
     try:
-        response, status_code = set_service_store_secret(SERVICE_NAME, key=f"token/{token}", value={"token": token})
+        response, status_code = set_service_store_secret(SERVICE_NAME, key=f"token/{token}", value={"token": token}, redact_regex=r"token/(.+)", redact_with="token/XXXX")
         if status_code != 200:
             raise CandigAuthError(f"Could not create_service_token from {SERVICE_NAME}: {response}")
     except Exception as e:
