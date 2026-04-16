@@ -358,6 +358,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
         url = f"{vault_url}/v1/auth/approle/login"
         response = requests.post(url, json=data)
         if response.status_code == 200:
+            logger.info(f"Issued Vault token for service {service}")
             return response.json()["auth"]["client_token"]
         else:
             raise CandigAuthError(f"login: {response.text}")
@@ -382,13 +383,13 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
         "X-Vault-Token": token
     }
     url = f"{vault_url}/v1/{service}/{key}"
-    print(f"storing secret of type {str(type(value))}")
     if ("json" in str(type(value))):
-        print("converting json to string")
         value = json.dumps(value)
     response = requests.post(url, headers=headers, data=value)
     if response.status_code >= 200 and response.status_code < 300:
+        logger.info(f"Store secret '{key}' for service {service}: {response.status_code}")
         return get_service_store_secret(service, key, token=token)
+    logger.info(f"FAILED to store secret '{key}' for service {service}: {response.status_code} {response.text}")
     return response.json(), response.status_code
 
 
@@ -412,8 +413,10 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
     url = f"{vault_url}/v1/{service}/{key}"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
+        logger.info(f"Get secret '{key}' for service {service}: {response.status_code}")
         result = response.json()["data"]
         return result, 200
+    logger.info(f"FAILED to get secret '{key}' for service {service}: {response.status_code} {response.text}")
     return {"error": response.text}, response.status_code
 
 
@@ -436,6 +439,7 @@ def delete_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=
     }
     url = f"{vault_url}/v1/{service}/{key}"
     response = requests.delete(url, headers=headers)
+    logger.info(f"Delete secret '{key}' for service {service}: {response.status_code} {response.text}")
     return response.text, response.status_code
 
 
