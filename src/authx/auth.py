@@ -393,7 +393,7 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
     return response.json(), response.status_code
 
 
-def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None):
+def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None, redact_regex=r"", redact_with=""):
     """
     Get a Vault service store secret. Should only be called from inside a container.
     """
@@ -413,7 +413,7 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
     url = f"{vault_url}/v1/{service}/{key}"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
-        logger.info(f"Get secret '{key}' for service {service}: {response.status_code}")
+        logger.info(f"Get secret '{re.sub(redact_regex, redact_with, key)}' for service {service}: {response.status_code}")
         result = response.json()["data"]
         return result, 200
     logger.info(f"FAILED to get secret '{key}' for service {service}: {response.status_code} {response.text}")
