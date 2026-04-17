@@ -368,6 +368,8 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
 def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None, redact_regex=r"", redact_with=""):
     """
     Set a Vault service store secret. Should only be called from inside a container.
+    If the key contains sensitive information, e.g. token values, redact_regex and redact_with can be used
+    to obscure that data.
     """
     if token is None:
         try:
@@ -396,6 +398,8 @@ def set_service_store_secret(service, key=None, value=None, vault_url=VAULT_URL,
 def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=None, secret_id=None, token=None, redact_regex=r"", redact_with=""):
     """
     Get a Vault service store secret. Should only be called from inside a container.
+    If the key contains sensitive information, e.g. token values, redact_regex and redact_with can be used
+    to obscure that data.
     """
     if token is None:
         try:
