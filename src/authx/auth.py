@@ -340,7 +340,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
         raise CandigAuthError("no role_id found")
 
     # get the secret_id
-    print(f"hola2 {secret_id}")
+    print(f"hola2 {secret_id} {service}")
 
     if secret_id is None:
         url = f"{vault_url}/v1/auth/approle/role/{service}/secret-id"
