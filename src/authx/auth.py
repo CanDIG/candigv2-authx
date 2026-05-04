@@ -423,6 +423,7 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
     }
     url = f"{vault_url}/v1/{service}/{key}"
     response = requests.get(url, headers=headers)
+    print(f"LESK {service} {key} {response.status_code} {response.text}")
     if response.status_code == 200:
         logger.info(f"Get secret '{re.sub(redact_regex, redact_with, key)}' for service {service}: {response.status_code}")
         result = response.json()["data"]
