@@ -329,7 +329,6 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
             approle_token = f.read().strip()
     if approle_token is None:
         raise CandigAuthError("no approle token found")
-    print("hola1")
     # in CanDIGv2 docker stack, roleid should have been passed in
     if role_id is None:
         try:
@@ -339,17 +338,18 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
             raise CandigAuthError(f"foo {str(e)}")
     if role_id is None:
         raise CandigAuthError("no role_id found")
-    print("hola2")
 
     # get the secret_id
     if secret_id is None:
         url = f"{vault_url}/v1/auth/approle/role/{service}/secret-id"
         headers = { "X-Vault-Token": approle_token }
         response = requests.post(url=url, headers=headers)
+        print("hola1")
         if response.status_code == 200:
             secret_id = response.json()["data"]["secret_id"]
         else:
             raise CandigAuthError(f"secret_id: {response.text}")
+        print("hola2")
 
         # swap the role_id and service_id for a token
         data = {
