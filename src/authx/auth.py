@@ -348,7 +348,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
         headers = { "X-Vault-Token": approle_token }
         print(f"hola0 {url} {headers}")
         response = requests.post(url=url, headers=headers)
-        print("hola1")
+        print(f"hola1 {response.json()}")
         if response.status_code == 200:
             secret_id = response.json()["data"]["secret_id"]
         else:
