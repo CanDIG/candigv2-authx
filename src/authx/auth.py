@@ -7,6 +7,7 @@ import json
 import uuid
 import getpass
 from candigv2_logging.logging import CanDIGLogger
+import traceback
 
 
 ## Env vars for most auth methods:
@@ -410,6 +411,7 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
         try:
             token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
         except Exception as e:
+            print(traceback.format_exc())
             return {"errorfsf": str(e)}, 500
     if token is None:
         return {"error": f"could not obtain token for {service}"}, 400
