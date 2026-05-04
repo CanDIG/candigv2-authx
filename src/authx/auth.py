@@ -336,7 +336,7 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
             with open(ROLE_ID_FILE) as f:
                 role_id = f.read().strip()
         except Exception as e:
-            raise CandigAuthError(str(e))
+            raise CandigAuthError(f"foo {str(e)}")
     if role_id is None:
         raise CandigAuthError("no role_id found")
 
@@ -405,7 +405,7 @@ def get_service_store_secret(service, key=None, vault_url=VAULT_URL, role_id=Non
         try:
             token = get_vault_token_for_service(vault_url=vault_url, role_id=role_id, secret_id=secret_id)
         except Exception as e:
-            return {"error": str(e)}, 500
+            return {"errorfsf": str(e)}, 500
     if token is None:
         return {"error": f"could not obtain token for {service}"}, 400
     if key is None:
