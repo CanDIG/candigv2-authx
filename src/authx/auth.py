@@ -343,9 +343,9 @@ def get_vault_token_for_service(service=SERVICE_NAME, vault_url=VAULT_URL, appro
     print(f"hola2 {secret_id} {service}")
 
     if secret_id is None:
-        print("hola0")
         url = f"{vault_url}/v1/auth/approle/role/{service}/secret-id"
         headers = { "X-Vault-Token": approle_token }
+        print("hola0")
         response = requests.post(url=url, headers=headers)
         print("hola1")
         if response.status_code == 200:
