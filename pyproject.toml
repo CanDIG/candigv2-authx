@@ -3,16 +3,15 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-version = "v2.8.7"
+version = "v2.9.1"
 name = "candigv2_authx"
 dependencies = [
-    "requests>=2.32.2",
+    "requests>=2.33.1",
     "minio>=7.2.19",
-    "pytest>=8.3.3",
-    "PyJWT>=2.6.0",
-    "cryptography>=43.0.1"
+    "pytest>=9.0.3",
+    "PyJWT>=2.12.0"
     ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.12"
 description = "Common authentication and authorization methods for CanDIGv2"
 readme = "README.md"
 
